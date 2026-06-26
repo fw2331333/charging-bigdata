@@ -1,0 +1,42 @@
+# 构建产物
+mapreduce/target/
+frontend/node_modules/
+frontend/dist/
+backend/.venv/
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 运行时生成（非原始数据）
+analytics/output/charts/*
+analytics/output/models/*
+!analytics/output/charts/.gitkeep
+!analytics/output/models/.gitkeep
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# 环境配置（含密码）
+.env
+.env.local
+backend/.env
+config/pipeline.env
+logs/
+
+# 数据集（用户自行上传 HDFS，禁止提交仓库）
+*.csv
+data/
+datasets/
+
+# 预置 SQL 种子允许提交（Web 演示）
+!sql/seed/
+!sql/seed/*.sql

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  单机伪分布式 core-site.xml
+  扩展三节点时：将 hadoop-master 改为 Master 节点主机名，并确保各节点 /etc/hosts 可解析
+-->
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://localhost:9000</value>
+  </property>
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>file:/usr/local/hadoop/tmp</value>
+  </property>
+</configuration>

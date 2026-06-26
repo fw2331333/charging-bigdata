@@ -1,0 +1,5 @@
+*.sh text eol=lf
+config/pipeline.env* text eol=lf
+hadoop/*.sh text eol=lf
+spark/scripts/*.sh text eol=lf
+mapreduce/*.sh text eol=lf

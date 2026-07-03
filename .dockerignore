@@ -1,0 +1,21 @@
+# Git
+.git
+.gitignore
+
+# 依赖与构建
+**/node_modules
+**/target
+**/dist
+**/.venv
+**/__pycache__
+
+# 密钥与本地配置
+**/.env
+config/pipeline.env
+*.csv
+*.pkl
+
+# 日志与临时
+logs
+.tmp_guide_images
+hive/packages

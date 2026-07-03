@@ -9,9 +9,24 @@
 |------|----------|
 | Python | 3.10+ |
 | Node.js | 18+ |
-| MySQL | 8.0+ |
+| MySQL | 8.0+（手动安装方式需要） |
+| Docker | 20+（**一键方式**，见下） |
 
-## 他人快速开始（仅 Web，推荐）
+## Docker 一键启动（别人电脑最快）
+
+无需本机 MySQL / Python / Node，自动导入 SQL 种子。详见 [docker/README.md](docker/README.md)。
+
+```bash
+git clone https://github.com/fw2331333/charging-bigdata.git
+cd charging-bigdata
+docker compose --env-file .env.docker.example up -d --build
+```
+
+浏览器打开：**http://localhost:8080**
+
+---
+
+## 他人快速开始（手动安装 MySQL）
 
 适合：只想本地看 **MR BI / SOC / 充电 / 热力图 / 速率** 等页面，不装 Hadoop。
 

@@ -1,0 +1,56 @@
+# 一键启动：MySQL（自动导入 SQL 种子）+ FastAPI + Vue 静态站
+# 用法见 docker/README.md
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: cbp-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-charging123}
+      MYSQL_DATABASE: charging_bigdata
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./sql/ads_schema.sql:/docker-entrypoint-initdb.d/02-ads.sql:ro
+      - ./sql/seed/charging_bigdata_data.sql:/seed-data.sql:ro
+      - ./docker/mysql/03-seed.sh:/docker-entrypoint-initdb.d/03-seed.sh:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-charging123}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+    container_name: cbp-backend
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-charging123}
+      MYSQL_DATABASE: charging_bigdata
+      CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      ANALYTICS_OUTPUT_DIR: /app/analytics/output
+    volumes:
+      - ./analytics/output/models:/app/analytics/output/models:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: cbp-frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

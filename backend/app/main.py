@@ -1,12 +1,23 @@
 """FastAPI 应用入口。"""
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.services.predict_service import PredictService
 
-app = FastAPI(title=settings.PROJECT_NAME, version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    loaded = PredictService().warmup_models()
+    print(f"[startup] ML models warmed: {loaded}")
+    yield
+
+
+app = FastAPI(title=settings.PROJECT_NAME, version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

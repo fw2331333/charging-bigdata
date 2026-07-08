@@ -9,11 +9,20 @@ _ROOT = Path(__file__).resolve().parents[3]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from analytics.ml_data import duration_features, platform_features, session_features, soc_features
+from analytics.ml_data import (
+    charge_hours_between,
+    duration_features,
+    platform_features,
+    session_features,
+    session_row_from_datetimes,
+    soc_features,
+    weekday_label,
+)
 
 from app.core.config import settings
 from app.schemas.predict import (
     ModelMetricsResponse,
+    PerformanceReportResponse,
     PredictDurationRequest,
     PredictDurationResponse,
     PredictFeeRequest,
@@ -26,17 +35,38 @@ from app.schemas.predict import (
 
 
 class PredictService:
+    MODEL_FILES = ("fee_model.pkl", "duration_model.pkl", "platform_model.pkl", "soc_model.pkl")
+
     def __init__(self) -> None:
         self.models_dir = Path(settings.ANALYTICS_OUTPUT_DIR) / "models"
+        self._model_cache: dict[str, dict] = {}
+
+    def models_status(self) -> dict[str, bool]:
+        return {name: (self.models_dir / name).is_file() for name in self.MODEL_FILES}
+
+    def warmup_models(self) -> dict[str, bool]:
+        loaded: dict[str, bool] = {}
+        for name in self.MODEL_FILES:
+            loaded[name] = self._load(name) is not None
+        return loaded
+
+    def reload_models(self) -> list[str]:
+        """清空内存模型缓存，下次预测时从磁盘重新加载。"""
+        self._model_cache.clear()
+        return [p.name for p in sorted(self.models_dir.glob("*.pkl"))]
 
     def _load(self, name: str) -> dict | None:
+        if name in self._model_cache:
+            return self._model_cache[name]
         path = self.models_dir / name
         if not path.exists():
             return None
         try:
             import joblib
             bundle = joblib.load(path)
-            return bundle if isinstance(bundle, dict) else {"model": bundle}
+            parsed = bundle if isinstance(bundle, dict) else {"model": bundle}
+            self._model_cache[name] = parsed
+            return parsed
         except Exception:
             return None
 
@@ -46,20 +76,30 @@ class PredictService:
             return ModelMetricsResponse(metrics=json.loads(p.read_text(encoding="utf-8")))
         return ModelMetricsResponse(metrics={})
 
+    def get_performance_report(self) -> PerformanceReportResponse:
+        p = self.models_dir / "performance_report.json"
+        if p.exists():
+            return PerformanceReportResponse(report=json.loads(p.read_text(encoding="utf-8")))
+        return PerformanceReportResponse(report={})
+
     def predict_fee(self, req: PredictFeeRequest) -> PredictFeeResponse:
-        # fee_model.pkl 由 fee_models.py 训练：线性回归 vs XGBoost 选优，非 RandomForest
         bundle = self._load("fee_model.pkl")
+        charge_hrs = (
+            req.charge_time_hrs
+            if req.charge_time_hrs is not None
+            else charge_hours_between(req.start_at, req.end_at)
+        )
         if bundle and "model" in bundle:
-            row = {
-                "kwhTotal": str(req.kwh_total),
-                "startTime": str(req.start_time),
-                "endTime": str(req.end_time),
-                "chargeTimeHrs": str(req.charge_time_hrs),
-                "weekday": req.weekday,
-                "platform": req.platform,
-                "facilityType": str(req.facility_type),
-                "stationId": str(req.station_id),
-            }
+            row = session_row_from_datetimes(
+                req.start_at,
+                req.end_at,
+                kwh_total=req.kwh_total,
+                weekday=req.weekday,
+                platform=req.platform,
+                facility_type=req.facility_type,
+                station_id=req.station_id,
+                charge_time_hrs=charge_hrs,
+            )
             f = session_features(row)
             if f:
                 fee = float(bundle["model"].predict([f])[0])
@@ -68,21 +108,21 @@ class PredictService:
                     predicted_fee=round(fee, 2),
                     algorithm=algo,
                 )
-        est = max(0.0, req.kwh_total * 1.2 + req.charge_time_hrs * 0.5)
+        est = max(0.0, req.kwh_total * 1.2 + charge_hrs * 0.5)
         return PredictFeeResponse(predicted_fee=round(est, 2), message="模型未加载，使用估算")
 
     def predict_duration(self, req: PredictDurationRequest) -> PredictDurationResponse:
         bundle = self._load("duration_model.pkl")
         if bundle and "model" in bundle:
-            row = {
-                "kwhTotal": str(req.kwh_total),
-                "startTime": str(req.start_time),
-                "endTime": str(req.end_time),
-                "weekday": req.weekday,
-                "platform": req.platform,
-                "facilityType": str(req.facility_type),
-                "stationId": str(req.station_id),
-            }
+            row = session_row_from_datetimes(
+                req.start_at,
+                req.end_at,
+                kwh_total=req.kwh_total,
+                weekday=req.weekday,
+                platform=req.platform,
+                facility_type=req.facility_type,
+                station_id=req.station_id,
+            )
             f = duration_features(row)
             if f:
                 hrs = float(bundle["model"].predict([f])[0])
@@ -97,8 +137,8 @@ class PredictService:
                 "kwhTotal": str(req.kwh_total),
                 "charging_fees": str(req.charging_fees),
                 "chargeTimeHrs": str(req.charge_time_hrs),
-                "startTime": str(req.start_time),
-                "weekday": req.weekday,
+                "startTime": str(req.start_at.hour),
+                "weekday": req.weekday or weekday_label(req.start_at),
                 "facilityType": str(req.facility_type),
             }
             f = platform_features(row)

@@ -1,5 +1,6 @@
-/** MapReduce 汇总 BI（MySQL → API） */
+/** MapReduce 汇总 BI（MySQL → API），带 60s 前端缓存 */
 import request from './request'
+import { cachedBiFetch } from '@/utils/biCache'
 
 export interface VoltageCurrentItem {
   record_hour: string
@@ -44,25 +45,39 @@ export interface SocTemperatureItem {
 }
 
 export const fetchVoltageCurrent = (limit = 500) =>
-  request.get<unknown, VoltageCurrentItem[]>('/bi/voltage-current', { params: { limit } })
+  cachedBiFetch(`bi/voltage-current?limit=${limit}`, () =>
+    request.get<unknown, VoltageCurrentItem[]>('/bi/voltage-current', { params: { limit } }),
+  )
 
 export const fetchCellVoltageRange = (limit = 500) =>
-  request.get<unknown, CellVoltageRangeItem[]>('/bi/cell-voltage-range', { params: { limit } })
+  cachedBiFetch(`bi/cell-voltage-range?limit=${limit}`, () =>
+    request.get<unknown, CellVoltageRangeItem[]>('/bi/cell-voltage-range', { params: { limit } }),
+  )
 
 export const fetchTemperature = (limit = 2000) =>
-  request.get<unknown, TemperatureItem[]>('/bi/temperature', { params: { limit } })
+  cachedBiFetch(`bi/temperature?limit=${limit}`, () =>
+    request.get<unknown, TemperatureItem[]>('/bi/temperature', { params: { limit } }),
+  )
 
 export const fetchEnergyCapacity = (limit = 500) =>
-  request.get<unknown, EnergyCapacityItem[]>('/bi/energy-capacity', { params: { limit } })
+  cachedBiFetch(`bi/energy-capacity?limit=${limit}`, () =>
+    request.get<unknown, EnergyCapacityItem[]>('/bi/energy-capacity', { params: { limit } }),
+  )
 
 export const fetchChargeCurrentStats = (limit = 500) =>
-  request.get<unknown, ChargeCurrentStatsItem[]>('/bi/charge-current-stats', { params: { limit } })
+  cachedBiFetch(`bi/charge-current-stats?limit=${limit}`, () =>
+    request.get<unknown, ChargeCurrentStatsItem[]>('/bi/charge-current-stats', { params: { limit } }),
+  )
 
 export const fetchVoltageCurrentRelation = (limit = 2000) =>
-  request.get<unknown, VoltageCurrentRelationItem[]>('/bi/voltage-current-relation', { params: { limit } })
+  cachedBiFetch(`bi/voltage-current-relation?limit=${limit}`, () =>
+    request.get<unknown, VoltageCurrentRelationItem[]>('/bi/voltage-current-relation', { params: { limit } }),
+  )
 
 export const fetchSocTemperature = (limit = 50) =>
-  request.get<unknown, SocTemperatureItem[]>('/bi/soc-temperature', { params: { limit } })
+  cachedBiFetch(`bi/soc-temperature?limit=${limit}`, () =>
+    request.get<unknown, SocTemperatureItem[]>('/bi/soc-temperature', { params: { limit } }),
+  )
 
 export interface SocHourlyItem {
   time_key: string
@@ -91,16 +106,26 @@ export interface SocHeatmapItem {
 }
 
 export const fetchSocHourly = (limit = 500) =>
-  request.get<unknown, SocHourlyItem[]>('/bi/soc-hourly', { params: { limit } })
+  cachedBiFetch(`bi/soc-hourly?limit=${limit}`, () =>
+    request.get<unknown, SocHourlyItem[]>('/bi/soc-hourly', { params: { limit } }),
+  )
 
 export const fetchChargingDaily = (limit = 500) =>
-  request.get<unknown, ChargingDailyItem[]>('/bi/charging-daily', { params: { limit } })
+  cachedBiFetch(`bi/charging-daily?limit=${limit}`, () =>
+    request.get<unknown, ChargingDailyItem[]>('/bi/charging-daily', { params: { limit } }),
+  )
 
 export const fetchChargingMonthly = (limit = 120) =>
-  request.get<unknown, ChargingMonthlyItem[]>('/bi/charging-monthly', { params: { limit } })
+  cachedBiFetch(`bi/charging-monthly?limit=${limit}`, () =>
+    request.get<unknown, ChargingMonthlyItem[]>('/bi/charging-monthly', { params: { limit } }),
+  )
 
 export const fetchChargeRateHourly = (limit = 48) =>
-  request.get<unknown, ChargeRateHourlyItem[]>('/bi/charge-rate-hourly', { params: { limit } })
+  cachedBiFetch(`bi/charge-rate-hourly?limit=${limit}`, () =>
+    request.get<unknown, ChargeRateHourlyItem[]>('/bi/charge-rate-hourly', { params: { limit } }),
+  )
 
 export const fetchSocHeatmap = (limit = 5000) =>
-  request.get<unknown, SocHeatmapItem[]>('/bi/soc-heatmap', { params: { limit } })
+  cachedBiFetch(`bi/soc-heatmap?limit=${limit}`, () =>
+    request.get<unknown, SocHeatmapItem[]>('/bi/soc-heatmap', { params: { limit } }),
+  )

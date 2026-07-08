@@ -1,0 +1,405 @@
+/* Now UI Dashboard 风格（对齐项目开发手册 §5.4） */
+
+:root {
+  --neu-sidebar-bg: #1a2a3a;
+  --neu-sidebar-active: #ffffff;
+  --neu-blue-start: #5e9fd4;
+  --neu-blue-mid: #4a8fc9;
+  --neu-blue-end: #3d7eb8;
+  --neu-panel: linear-gradient(135deg, var(--neu-blue-start) 0%, var(--neu-blue-mid) 48%, var(--neu-blue-end) 100%);
+  --neu-accent: #5e72e4;
+  --neu-text-muted: #9a9a9a;
+  --neu-card-shadow: 0 1px 20px 0 rgba(0, 0, 0, 0.08);
+  --neu-sidebar-width: 248px;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  background: #eef3f8;
+  color: #2c2c2c;
+  overflow-y: scroll;
+}
+
+/* ---- 布局骨架 ---- */
+.now-wrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.now-sidebar {
+  width: var(--neu-sidebar-width);
+  flex-shrink: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 1030;
+  background: var(--neu-sidebar-bg);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.now-sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+.now-sidebar .logo {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(94, 159, 212, 0.15);
+}
+
+.now-sidebar .logo-mini {
+  display: block;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  text-decoration: none;
+}
+
+.now-sidebar .logo-normal {
+  display: block;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.now-nav {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0 8px;
+}
+
+.now-nav li {
+  margin-bottom: 2px;
+}
+
+.now-nav a {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  font-size: 12px;
+  line-height: 1.3;
+  transition: background 0.18s, color 0.18s;
+}
+
+.now-nav a:hover {
+  color: #fff;
+  background: rgba(94, 159, 212, 0.15);
+}
+
+.now-nav li.active a {
+  background: var(--neu-sidebar-active);
+  color: #2b5876;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.now-nav-sections {
+  padding-bottom: 12px;
+}
+
+.nav-section-title {
+  margin: 10px 14px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 186, 214, 0.55);
+}
+
+.now-nav .nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 0;
+  opacity: 0.85;
+}
+
+.now-nav li.active .nav-icon {
+  filter: none;
+  opacity: 1;
+}
+
+.now-main-panel {
+  flex: 1;
+  margin-left: var(--neu-sidebar-width);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ---- 顶栏 Navbar ---- */
+.now-navbar {
+  height: 56px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1020;
+  color: #fff;
+}
+
+.now-navbar-brand {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.95);
+  text-decoration: none;
+}
+
+.now-navbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.now-search {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 30px;
+  padding: 6px 14px;
+  min-width: 180px;
+}
+
+.now-search input {
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  width: 120px;
+  outline: none;
+}
+
+.now-search input::placeholder {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.now-nav-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: default;
+}
+
+/* ---- 浅蓝 Panel Header ---- */
+.now-panel-header {
+  padding: 72px 24px 100px;
+  background: var(--neu-panel);
+  position: relative;
+}
+
+.now-panel-header .header {
+  text-align: center;
+}
+
+.now-panel-header .title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 300;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.now-panel-header .category {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* ---- 主内容区（卡片上浮覆盖金条） ---- */
+.now-content {
+  flex: 1;
+  padding: 0 24px 24px;
+  margin-top: -72px;
+  position: relative;
+  z-index: 1;
+}
+
+.now-content-bi {
+  margin-top: 0;
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.now-bi-mode .now-main-panel {
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.now-navbar-bi {
+  background: linear-gradient(90deg, #3d7eb8, #5e9fd4);
+  position: relative;
+  box-shadow: 0 2px 8px rgba(61, 126, 184, 0.25);
+}
+
+.now-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: var(--neu-card-shadow);
+  margin-bottom: 24px;
+}
+
+.now-card-body {
+  padding: 24px 28px 28px;
+  overflow: visible;
+}
+
+.now-card-title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 400;
+  color: #3c4858;
+  margin: 0 0 8px;
+}
+
+.now-card-title .category {
+  display: block;
+  font-size: 12px;
+  color: var(--neu-text-muted);
+  font-weight: 400;
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.now-section-subtitle {
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+  margin: 0 0 20px;
+}
+
+.now-footer {
+  padding: 20px 24px;
+  background: transparent;
+  font-size: 12px;
+  color: #888;
+}
+
+.now-footer nav ul {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  gap: 16px;
+}
+
+.now-footer nav a {
+  color: #888;
+  text-decoration: none;
+}
+
+.now-footer .copyright {
+  color: #aaa;
+}
+
+.bi-page-wrap {
+  margin-bottom: 0;
+  overflow: hidden;
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.bi-page-body {
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---- 首页大图 ---- */
+.now-hero-img {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.now-intro-text {
+  max-width: 900px;
+  margin: 20px auto 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #555;
+  text-align: justify;
+}
+
+.now-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  overflow: visible;
+}
+
+.now-chart-grid > div {
+  min-width: 0;
+  padding: 0 6px;
+  overflow: visible;
+}
+
+.now-chart-grid h6 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin: 0 0 10px;
+  text-align: center;
+}
+
+.now-predict-result {
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: #f0f6fc;
+  border-left: 4px solid var(--neu-blue-mid);
+  font-size: 15px;
+}
+
+.now-predict-result strong {
+  font-size: 22px;
+  color: #344675;
+}
+
+@media (max-width: 991px) {
+  .now-sidebar {
+    transform: translateX(-100%);
+  }
+  .now-main-panel {
+    margin-left: 0;
+  }
+}

@@ -1,7 +1,8 @@
 # 新能源充电桩大数据分析项目
 
-> Web 演示：**无需 Hadoop**，导入仓库内 MySQL 种子数据即可跑通全部图表页。  
-> 完整大数据链路（HDFS + MapReduce + Spark）见 [docs/虚拟机一次性运行手册.md](docs/虚拟机一次性运行手册.md)。
+> **企业级分层**：HDFS 计算 → 独立 ETL 入 MySQL 服务层 → FastAPI → Vue。  
+> MR **不直连 MySQL**（ETL 幂等写入），详见 [docs/企业级架构与ETL设计.md](docs/企业级架构与ETL设计.md)。  
+> Web 演示：**无需 Hadoop**，导入种子 SQL 即可。三节点部署见 [docs/三节点集群部署手册.md](docs/三节点集群部署手册.md)。
 
 ## 环境要求
 
@@ -12,17 +13,22 @@
 | MySQL | 8.0+（手动安装方式需要） |
 | Docker | 20+（**一键方式**，见下） |
 
-## Docker 一键启动（别人电脑最快）
+## Docker 一键启动（别人电脑 / 云服务器最快）
 
 无需本机 MySQL / Python / Node，自动导入 SQL 种子。详见 [docker/README.md](docker/README.md)。
+
+**上传 GitHub 与云服务器部署目录说明**：[docs/服务器部署与GitHub目录.md](docs/服务器部署与GitHub目录.md)
+
+上传前可校验：`powershell -File scripts/check-deploy-files.ps1` 或 `bash scripts/check-deploy-files.sh`
 
 ```bash
 git clone https://github.com/fw2331333/charging-bigdata.git
 cd charging-bigdata
-docker compose --env-file .env.docker.example up -d --build
+cp .env.docker.example .env.docker   # 改公网 IP、密码、JWT、SMTP
+docker compose --env-file .env.docker up -d --build
 ```
 
-浏览器打开：**http://localhost:8080**
+浏览器打开：**http://localhost:8080**（服务器改为公网 IP + 安全组放行 8080）
 
 ---
 
@@ -99,11 +105,35 @@ npm run dev
 
 | 页面 | 数据来源 |
 |------|----------|
-| MR 汇总 BI | MySQL MR 表（已导入） |
-| SOC / 充电 / 速率 / 热力图 | MySQL ADS 表（已导入） |
+| **Datart BI 大屏**（手册 §5.1–5.3） | MySQL `charging_bigdata` MR 表，在 Datart 中配置 |
+| SOC / 充电 / 速率 / 热力图（§5.4） | MySQL ADS 表（已导入） |
 | 四项预测 | 需额外准备模型，见下文 |
 
-### 5. 预测页（可选）
+### 5. Datart BI 大屏（手册第五章主入口）
+
+```powershell
+# 启动 Datart（映射本机 8088，避免与 Docker Web 8080 冲突）
+powershell -ExecutionPolicy Bypass -File scripts/start-datart.ps1
+
+# 可选：复制前端环境变量
+cd frontend
+copy .env.example .env
+```
+
+1. 浏览器打开 **http://127.0.0.1:8088**，登录 `demo` / `123456`
+2. 在 Datart 中连接 MySQL 库 `charging_bigdata`，按 v1–v7 建 View / Chart / Dashboard
+3. 分享 Dashboard 后，将链接写入 `frontend/.env` 的 `VITE_DATART_DASHBOARD_URL`
+4. Vue 首页 **「Datart BI 大屏」** 按钮将新窗口打开 Datart
+
+完整步骤见 **[docs/Datart-BI大屏部署手册.md](docs/Datart-BI大屏部署手册.md)**。
+
+Docker 一并启动 Datart：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.datart.yml up -d --build
+```
+
+### 6. 预测页（可选）
 
 图表不依赖 Hadoop；**预测接口**需要 `analytics/output/models/*.pkl`。
 
@@ -130,46 +160,68 @@ python analytics/scripts/train_all_models.py ^
 
 ```text
 charging-bigdata/
-├── backend/           # FastAPI（读 MySQL + 加载模型）
-├── frontend/          # Vue3 + ECharts
-├── sql/
-│   ├── schema.sql     # MR 表结构
-│   ├── ads_schema.sql # ADS 表结构
-│   └── seed/          # 预置数据（Web 演示）
-├── analytics/         # ML 训练脚本
-├── mapreduce/         # Hadoop MR（完整链路用）
-├── spark/             # Spark ADS（完整链路用）
-├── scripts/
-│   ├── import_web_demo.ps1   # 一键导入 MySQL
-│   └── run-pipeline.sh       # 虚拟机全量流水线
+├── backend/              # FastAPI 服务层（api → service → repository）
+│   └── app/
+│       ├── api/v1/       # REST 路由
+│       ├── services/     # 业务编排
+│       ├── repositories/ # MySQL 只读访问
+│       ├── schemas/      # 响应模型
+│       └── core/         # 配置、连接池、常量
+├── frontend/             # Vue3 + ECharts 展示层
+├── analytics/
+│   ├── etl/              # MR → MySQL 企业级 ETL 包
+│   └── scripts/          # ETL CLI、ML 训练
+├── mapreduce/            # Hadoop MR v1~v7（只写 HDFS）
+├── spark/                # Spark ADS → MySQL
+├── hadoop/
+│   ├── conf-pseudo/      # 单机配置
+│   ├── conf-cluster/     # 三节点完整配置
+│   └── cluster/          # SSH 免密、部署、验证脚本
+├── sql/                  # schema + seed
+├── scripts/              # run-pipeline.sh 单入口流水线
 └── docs/
 ```
 
 ## 数据流说明
 
-### Web 演示模式（本 README 主线）
+### 企业级离线链路（推荐答辩主线）
+
+```text
+HDFS /Car/*.csv
+    ├─→ MapReduce v1~v7 ──→ HDFS /Car/output/v*
+    │                              ↓
+    │                    analytics/etl（幂等 UPSERT）
+    │                              ↓
+    ├─→ Spark ADS ─────────────→ MySQL 服务层
+    └─→ Python ML ──→ .pkl
+                              ↓
+                    FastAPI /api/v1/*
+                              ↓
+                    Vue + ECharts
+```
+
+### Web 演示模式（无 Hadoop）
 
 ```text
 sql/seed/charging_bigdata_data.sql
         ↓ 导入
-     MySQL
-        ↓ 只读
-  FastAPI /api/v1/bi/*
-        ↓
-  Vue + ECharts 图表页
+     MySQL charging_bigdata
+        ├─→ Datart BI 大屏（手册 §5.1–5.3）
+        └─→ FastAPI /api/v1/* → Vue ECharts 分析页（§5.4）
 ```
 
-### 完整大数据模式（可选）
+### 完整大数据模式（三节点 + ETL）
 
 ```text
-HDFS /Car/（四个 CSV）
-    ├─→ dsv13r1 → MapReduce v1~v7 → MySQL MR 表
-    ├─→ dsv13r2 → Spark ADS → SOC / 速率 / 热力图
-    ├─→ nvv2t   → Spark ADS → 日/月充电次数
+HDFS /Car/（四个 CSV，副本数 3）
+    ├─→ dsv13r1 → MapReduce v1~v7 → HDFS 结果
+    │                    ↓ ETL（非 Reducer JDBC）
+    │                 MySQL MR 表
+    ├─→ dsv13r2 + nvv2t → Spark ADS → MySQL ADS 表
     └─→ nvv2t_md → Python ML → 预测模型
 ```
 
-详见 [docs/虚拟机一次性运行手册.md](docs/虚拟机一次性运行手册.md)。
+详见 [docs/虚拟机一次性运行手册.md](docs/虚拟机一次性运行手册.md)、[docs/三节点集群部署手册.md](docs/三节点集群部署手册.md)。
 
 ## 维护者：更新种子数据
 
@@ -191,10 +243,14 @@ powershell -File scripts/package_web_demo.ps1
 
 | 文档 | 说明 |
 |------|------|
+| [docs/Datart-BI大屏部署手册.md](docs/Datart-BI大屏部署手册.md) | **手册 §5.1–5.3** Datart 部署、数据源、七图 Dashboard |
+| [docs/企业级架构与ETL设计.md](docs/企业级架构与ETL设计.md) | 分层架构、ETL 选型、评分对照 |
+| [docs/三节点集群部署手册.md](docs/三节点集群部署手册.md) | 真三节点 SSH/Hadoop 部署 |
 | [sql/seed/README.md](sql/seed/README.md) | 种子数据说明 |
 | [release/README.md](release/README.md) | Release 包说明 |
 | [docs/MySQL远程配置与建库.md](docs/MySQL远程配置与建库.md) | MySQL 详细配置 |
-| [docs/虚拟机一次性运行手册.md](docs/虚拟机一次性运行手册.md) | Hadoop 全链路 |
+| [docs/虚拟机一次性运行手册.md](docs/虚拟机一次性运行手册.md) | 虚拟机全链路 |
+| [hadoop/README.md](hadoop/README.md) | Hadoop 配置与集群脚本 |
 
 ## 安全提示
 

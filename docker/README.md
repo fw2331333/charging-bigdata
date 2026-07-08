@@ -10,14 +10,19 @@
 ## 一键启动
 
 ```bash
-git clone https://github.com/fw2331333/charging-bigdata.git
+git clone https://github.com/<你的用户名>/charging-bigdata.git
 cd charging-bigdata
 
-# 可选：复制并修改 root 密码、Web 端口
-copy .env.docker.example .env.docker    # Linux: cp .env.docker.example .env.docker
+# 校验必传文件（可选）
+bash scripts/check-deploy-files.sh
 
-docker compose --env-file .env.docker.example up -d --build
+# 复制并修改：公网 IP、MYSQL_ROOT_PASSWORD、JWT_SECRET、SMTP
+cp .env.docker.example .env.docker
+
+docker compose --env-file .env.docker up -d --build
 ```
+
+完整目录说明见 [docs/服务器部署与GitHub目录.md](../docs/服务器部署与GitHub目录.md)。
 
 首次构建约 3～8 分钟；MySQL 首次启动会自动导入：
 
@@ -30,7 +35,18 @@ docker compose --env-file .env.docker.example up -d --build
 | 地址 | 说明 |
 |------|------|
 | http://localhost:8080 | 前端页面（默认端口） |
+| http://localhost:8088 | Datart BI（需叠加 `docker-compose.datart.yml`） |
 | http://localhost:8000/docs | 仅当映射 backend 端口时可用（默认未映射） |
+
+## 含 Datart BI 一键启动
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.datart.yml --env-file .env.docker.example up -d --build
+```
+
+Datart 默认账号 `demo` / `123456`。在 Datart 中连接 `charging_bigdata` 并配置 Dashboard 后，将分享链接写入 `.env.docker` 的 `VITE_DATART_DASHBOARD_URL`，重建 frontend 即可从首页直达。
+
+详见 [docs/Datart-BI大屏部署手册.md](../docs/Datart-BI大屏部署手册.md)。
 
 ## 常用命令
 

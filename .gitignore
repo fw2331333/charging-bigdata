@@ -16,8 +16,11 @@ analytics/output/charts/*
 analytics/output/models/*
 !analytics/output/charts/.gitkeep
 !analytics/output/models/.gitkeep
+!analytics/output/models/*.json
+!analytics/output/models/*.pkl
 
-# IDE
+# 前端本地环境（Docker 构建用 ARG / .env.docker）
+frontend/.env
 .idea/
 *.iml
 .vscode/
@@ -30,6 +33,7 @@ analytics/output/models/*
 .env.local
 backend/.env
 config/pipeline.env
+backend/chroma_db/
 logs/
 
 # 数据集（用户自行上传 HDFS，禁止提交仓库）

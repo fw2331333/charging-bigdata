@@ -1,0 +1,104 @@
+{
+  "fee": {
+    "task": "fee",
+    "algorithm": "xgboost",
+    "r2": 0.9701,
+    "mae": 0.0181,
+    "mse": 0.0049,
+    "train_r2": 0.9924,
+    "test_r2": 0.9701,
+    "fit_status": "ok",
+    "hyperparams": {
+      "n_estimators": 120,
+      "max_depth": 4,
+      "learning_rate": 0.06,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 1.0,
+      "random_state": 42,
+      "n_jobs": -1
+    },
+    "samples": 3380,
+    "model_comparison": {
+      "linear_regression": {
+        "r2": 0.3917,
+        "mae": 0.22,
+        "mse": 0.0997,
+        "train_r2": 0.4529
+      },
+      "xgboost": {
+        "r2": 0.9701,
+        "mae": 0.0181,
+        "mse": 0.0049,
+        "train_r2": 0.9924
+      },
+      "selected": "xgboost",
+      "selection_criterion": "测试集 R² 更高者优先；同分时 MAE 更低者优先"
+    }
+  },
+  "duration": {
+    "r2": 0.6482,
+    "mae": 0.5024,
+    "mse": 0.4757,
+    "train_r2": 0.7068,
+    "train_mae": 0.4686,
+    "test_r2": 0.6482,
+    "fit_status": "ok",
+    "fit_note": "训练/测试R²差距在可接受范围",
+    "hyperparams": {
+      "n_estimators": 100,
+      "max_depth": 8,
+      "min_samples_leaf": 5,
+      "min_samples_split": 10,
+      "max_features": "sqrt",
+      "random_state": 42,
+      "n_jobs": -1
+    },
+    "samples": 3380,
+    "task": "duration"
+  },
+  "platform": {
+    "accuracy": 0.7183,
+    "train_accuracy": 0.7374,
+    "f1": 0.6527,
+    "fit_status": "ok",
+    "fit_note": "训练/测试准确率差距在可接受范围",
+    "hyperparams": {
+      "n_estimators": 100,
+      "max_depth": 8,
+      "min_samples_leaf": 5,
+      "min_samples_split": 10,
+      "max_features": "sqrt",
+      "random_state": 42,
+      "n_jobs": -1
+    },
+    "samples": 3389,
+    "task": "platform",
+    "classes": [
+      "android",
+      "ios"
+    ]
+  },
+  "soc": {
+    "r2": 0.9996,
+    "mae": 0.1394,
+    "mse": 0.1188,
+    "train_r2": 0.9997,
+    "train_mae": 0.1119,
+    "test_r2": 0.9996,
+    "fit_status": "ok",
+    "fit_note": "训练/测试R²差距在可接受范围",
+    "hyperparams": {
+      "n_estimators": 80,
+      "max_depth": 6,
+      "min_samples_leaf": 8,
+      "min_samples_split": 12,
+      "max_features": "sqrt",
+      "random_state": 42,
+      "n_jobs": -1
+    },
+    "samples": 1594,
+    "task": "soc"
+  }
+}

@@ -1,78 +1,47 @@
 <template>
-
-  <el-card v-loading="loading">
-
-    <template #header>充电速率（MySQL ADS）</template>
-
-    <p class="hint">按一天内小时正序（00→23）；纵轴为 SOC 变化率</p>
-
-    <el-empty v-if="!option && !loading" description="暂无数据" />
-
-    <MrEchart v-if="option" :option="option" />
-
-  </el-card>
-
+  <NowUiPageCard
+    v-loading="loading"
+    page-title="平均充电速率图分析"
+    page-subtitle="Average Charging Speed"
+    :section-hint="t('nav.sectionHint')"
+  >
+    <ExpandableChartBlock title="Average Charging Speed by Hour of Day" :option="option">
+      <MrEchart v-if="option" :option="option" />
+      <el-empty v-else description="暂无数据" />
+    </ExpandableChartBlock>
+  </NowUiPageCard>
 </template>
 
-
-
 <script setup lang="ts">
+defineOptions({ name: 'ChargeRateView' })
 
-import type { EChartsOption } from 'echarts'
-
+import type { ChartOption } from '@/utils/mrCharts'
 import { onMounted, ref } from 'vue'
-
-import MrEchart from '@/components/bi/MrEchart.vue'
-
+import MrEchart from '@/components/bi/AsyncMrEchart'
+import ExpandableChartBlock from '@/components/bi/ExpandableChartBlock.vue'
+import NowUiPageCard from '@/components/layout/NowUiPageCard.vue'
+import { useLocale } from '@/composables/useLocale'
 import { fetchChargeRateHourly } from '@/api/bi'
 
+const { t } = useLocale()
 import { formatHourAxis, singleLineOption, sortByTimeKey } from '@/utils/mrCharts'
 
-
-
 const loading = ref(false)
-
-const option = ref<EChartsOption | null>(null)
-
-
+const option = ref<ChartOption | null>(null)
 
 onMounted(async () => {
-
   loading.value = true
-
   try {
-
     const rows = sortByTimeKey(await fetchChargeRateHourly(), 'hour_key')
-
     option.value = singleLineOption(
-
-      '平均充电速率（按小时）',
-
+      'Average Charging Speed by Hour of Day',
       rows.map((r) => formatHourAxis(r.hour_key)),
-
-      '速率(%SOC/分钟)',
-
+      'Average Charging Speed (SOC/min)',
       rows.map((r) => r.avg_rate),
-
-      { xAxisName: '时', yDecimals: 4 },
-
+      { xAxisName: 'Hour of the Day', yDecimals: 4 },
     )
-
   } finally {
-
     loading.value = false
-
   }
-
 })
-
 </script>
-
-
-
-<style scoped>
-
-.hint { margin: 0 0 12px; color: #909399; font-size: 13px; }
-
-</style>
-

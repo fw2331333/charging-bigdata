@@ -1,28 +1,33 @@
 <template>
-  <el-card v-loading="loading">
-    <template #header>
-      <div class="header">
-        <span>MapReduce 汇总 BI（MySQL 动态图表）</span>
-        <el-tag type="success">MySQL → API → ECharts</el-tag>
+  <div v-loading="loading" class="mr-bi-page">
+    <BiVisuHeader />
+    <FourSBanner />
+
+    <div class="mr-bi-grid">
+      <div v-for="panel in panels" :key="panel.key" class="mr-bi-cell" :class="panel.span">
+        <MrEchart
+          v-if="panel.option"
+          :option="panel.option"
+          :height="panel.height"
+          :drillable="!!panel.drill"
+          @chart-click="goDrill(panel.drill)"
+        />
+        <el-empty v-else description="暂无数据" />
       </div>
-    </template>
-    <p class="desc">
-      数据来自 MapReduce 入库结果（charging_bigdata），由后端 API 实时查询，前端 ECharts 动态渲染。
-      <strong>v1/v2/v4/v5 横轴为记录时间正序；v3/v6 为明细时序数据。</strong>
-    </p>
-    <el-tabs v-model="activeTab" @tab-change="onTabChange">
-      <el-tab-pane v-for="tab in tabs" :key="tab.key" :label="tab.label" :name="tab.key">
-        <el-empty v-if="!options[tab.key] && !loading" description="暂无数据，请先运行流水线入库" />
-        <MrEchart v-if="options[tab.key]" :key="tab.key" :option="options[tab.key]!" />
-      </el-tab-pane>
-    </el-tabs>
-  </el-card>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import type { EChartsOption } from 'echarts'
-import { nextTick, onMounted, reactive, ref } from 'vue'
-import MrEchart from '@/components/bi/MrEchart.vue'
+defineOptions({ name: 'MrBiView' })
+
+import type { ChartOption } from '@/utils/mrCharts'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import BiVisuHeader from '@/components/bi/BiVisuHeader.vue'
+import MrEchart from '@/components/bi/AsyncMrEchart'
+import FourSBanner from '@/components/home/FourSBanner.vue'
+import { fetchViewConfigs, type ChartViewConfig } from '@/api/auth'
 import {
   fetchCellVoltageRange,
   fetchChargeCurrentStats,
@@ -31,167 +36,193 @@ import {
   fetchTemperature,
   fetchVoltageCurrent,
   fetchVoltageCurrentRelation,
+  type CellVoltageRangeItem,
+  type ChargeCurrentStatsItem,
+  type EnergyCapacityItem,
+  type SocTemperatureItem,
+  type TemperatureItem,
+  type VoltageCurrentItem,
+  type VoltageCurrentRelationItem,
 } from '@/api/bi'
 import {
+  aggregateTemperatureByHour,
   barOption,
+  barWithTotalOption,
+  dualBarVisuOption,
   dualLineOption,
-  formatMrTime,
+  hourAxisLabel,
   scatterOption,
   sortByTimeKey,
+  stackedAreaOption,
 } from '@/utils/mrCharts'
 
-type TabKey = 'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7'
+interface Panel {
+  key: string
+  option: ChartOption | null
+  span?: string
+  height?: number
+  drill?: string
+}
 
+const router = useRouter()
 const loading = ref(false)
-const activeTab = ref<TabKey>('v1')
-const options = reactive<Partial<Record<TabKey, EChartsOption>>>({})
-const loaded = reactive<Partial<Record<TabKey, boolean>>>({})
+const panels = ref<Panel[]>([])
 
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'v1', label: 'v1 电压电流' },
-  { key: 'v2', label: 'v2 单体电压' },
-  { key: 'v3', label: 'v3 温度' },
-  { key: 'v4', label: 'v4 能量容量' },
-  { key: 'v5', label: 'v5 充电电流' },
-  { key: 'v6', label: 'v6 电压电流关系' },
-  { key: 'v7', label: 'v7 SOC 温度' },
-]
-
-async function loadV1() {
-  const rows = sortByTimeKey(await fetchVoltageCurrent(), 'record_hour')
-  const x = rows.map((r) => formatMrTime(r.record_hour))
-  options.v1 = dualLineOption(
-    'v1 组电压与充电电流（时序）',
-    x,
-    [
-      { name: '平均组电压(V)', data: rows.map((r) => r.avg_pack_voltage), yAxisIndex: 0 },
-      { name: '平均充电电流(A)', data: rows.map((r) => r.avg_charge_current), yAxisIndex: 1 },
-    ],
-    ['电压(V)', '电流(A)'],
-    { xAxisName: '时间', yDecimals: 2 },
-  )
+const DATA_FETCHERS: Record<string, () => Promise<unknown>> = {
+  '/bi/voltage-current': () => fetchVoltageCurrent(),
+  '/bi/cell-voltage-range': () => fetchCellVoltageRange(),
+  '/bi/temperature': () => fetchTemperature(),
+  '/bi/energy-capacity': () => fetchEnergyCapacity(),
+  '/bi/charge-current-stats': () => fetchChargeCurrentStats(),
+  '/bi/voltage-current-relation': () => fetchVoltageCurrentRelation(),
+  '/bi/soc-temperature': () => fetchSocTemperature(),
 }
 
-async function loadV2() {
-  const rows = sortByTimeKey(await fetchCellVoltageRange(), 'record_hour')
-  const x = rows.map((r) => formatMrTime(r.record_hour))
-  options.v2 = dualLineOption(
-    'v2 单体电压范围（时序）',
-    x,
-    [
-      { name: '最高单体电压(V)', data: rows.map((r) => r.max_cell_voltage) },
-      { name: '最低单体电压(V)', data: rows.map((r) => r.min_cell_voltage) },
-    ],
-    ['电压(V)'],
-    { xAxisName: '时间', yDecimals: 3 },
-  )
+function goDrill(path?: string) {
+  if (path) router.push(path)
 }
 
-async function loadV3() {
-  const rows = sortByTimeKey(await fetchTemperature(), 'record_time')
-  const x = rows.map((r) => formatMrTime(r.record_time))
-  options.v3 = dualLineOption(
-    'v3 电池温度趋势',
-    x,
-    [
-      { name: '最高温度(℃)', data: rows.map((r) => r.max_temperature) },
-      { name: '最低温度(℃)', data: rows.map((r) => r.min_temperature) },
-    ],
-    ['温度(℃)'],
-    { xAxisName: '时间', yDecimals: 1 },
-  )
+function setOption(key: string, option: ChartOption | null) {
+  const p = panels.value.find((x) => x.key === key)
+  if (p) p.option = option
 }
 
-async function loadV4() {
-  const rows = sortByTimeKey(await fetchEnergyCapacity(), 'record_hour')
-  const x = rows.map((r) => formatMrTime(r.record_hour))
-  options.v4 = dualLineOption(
-    'v4 可用能量与容量（时序）',
-    x,
-    [
-      { name: '平均可用能量(kW)', data: rows.map((r) => r.avg_available_energy), yAxisIndex: 0 },
-      { name: '平均可用容量(Ah)', data: rows.map((r) => r.avg_available_capacity), yAxisIndex: 1 },
-    ],
-    ['能量(kW)', '容量(Ah)'],
-    { xAxisName: '时间', yDecimals: 2 },
-  )
+function buildOption(cfg: ChartViewConfig, raw: unknown): ChartOption | null {
+  const title = cfg.title
+  const key = cfg.chart_key
+
+  if (key === 'v1') {
+    const rows = sortByTimeKey(raw as VoltageCurrentItem[], 'record_hour')
+    const x = rows.map((r) => hourAxisLabel(r.record_hour))
+    return dualBarVisuOption(
+      x,
+      rows.map((r) => r.avg_pack_voltage),
+      rows.map((r) => r.avg_charge_current),
+    )
+  }
+
+  if (key === 'v2') {
+    const rows = sortByTimeKey(raw as CellVoltageRangeItem[], 'record_hour')
+    const x = rows.map((r) => hourAxisLabel(r.record_hour))
+    return dualLineOption(
+      title,
+      x,
+      [
+        { name: 'max_cell_voltage', data: rows.map((r) => r.max_cell_voltage) },
+        { name: 'min_cell_voltage', data: rows.map((r) => r.min_cell_voltage) },
+      ],
+      ['V', 'V'],
+      { xAxisName: '小时', yDecimals: 4 },
+    )
+  }
+
+  if (key === 'v3') {
+    const rows = aggregateTemperatureByHour(raw as TemperatureItem[])
+    const x = rows.map((r) => r.label)
+    return dualLineOption(
+      title,
+      x,
+      [
+        { name: 'max_temperature', data: rows.map((r) => r.max_temperature) },
+        { name: 'min_temperature', data: rows.map((r) => r.min_temperature) },
+      ],
+      ['℃', '℃'],
+      { xAxisName: '时间', yDecimals: 2 },
+    )
+  }
+
+  if (key === 'v4') {
+    const rows = sortByTimeKey(raw as EnergyCapacityItem[], 'record_hour')
+    const x = rows.map((r) => hourAxisLabel(r.record_hour))
+    return stackedAreaOption(x, [
+      { name: 'avg_available_energy', data: rows.map((r) => r.avg_available_energy) },
+      { name: 'avg_available_capacity', data: rows.map((r) => r.avg_available_capacity) },
+    ])
+  }
+
+  if (key === 'v5') {
+    const rows = sortByTimeKey(raw as ChargeCurrentStatsItem[], 'record_hour')
+    const x = rows.map((r) => hourAxisLabel(r.record_hour))
+    return barWithTotalOption(x, rows.map((r) => r.max_charge_current))
+  }
+
+  if (key === 'v6') {
+    const rows = raw as VoltageCurrentRelationItem[]
+    const points = rows.map((r) => [r.pack_voltage, r.charge_current] as [number, number])
+    return scatterOption(title, points, 'pack_voltage (V)', 'charge_current (A)')
+  }
+
+  if (key === 'v7') {
+    const rows = raw as SocTemperatureItem[]
+    const buckets = rows.map((r) => r.soc_bucket)
+    return barOption(title, buckets, [
+      { name: 'avg_min_temperature', data: rows.map((r) => r.avg_min_temperature) },
+      { name: 'avg_max_temperature', data: rows.map((r) => r.avg_max_temperature) },
+    ])
+  }
+
+  return null
 }
 
-async function loadV5() {
-  const rows = sortByTimeKey(await fetchChargeCurrentStats(), 'record_hour')
-  const x = rows.map((r) => formatMrTime(r.record_hour))
-  options.v5 = dualLineOption(
-    'v5 充电电流统计（时序）',
-    x,
-    [
-      { name: '平均充电电流(A)', data: rows.map((r) => r.avg_charge_current) },
-      { name: '最大充电电流(A)', data: rows.map((r) => r.max_charge_current) },
-    ],
-    ['电流(A)'],
-    { xAxisName: '时间', yDecimals: 2 },
-  )
-}
-
-async function loadV6() {
-  const rows = sortByTimeKey(await fetchVoltageCurrentRelation(), 'record_time')
-  const points = rows.map((r) => [r.pack_voltage, r.charge_current] as [number, number])
-  options.v6 = scatterOption('v6 组电压与充电电流关系', points, '组电压(V)', '充电电流(A)')
-}
-
-async function loadV7() {
-  const rows = await fetchSocTemperature()
-  options.v7 = barOption(
-    'v7 不同 SOC 区间平均温度',
-    rows.map((r) => r.soc_bucket),
-    [
-      { name: '平均最高温度(℃)', data: rows.map((r) => r.avg_max_temperature) },
-      { name: '平均最低温度(℃)', data: rows.map((r) => r.avg_min_temperature) },
-    ],
-    '温度(℃)',
-  )
-}
-
-const loaders: Record<TabKey, () => Promise<void>> = {
-  v1: loadV1,
-  v2: loadV2,
-  v3: loadV3,
-  v4: loadV4,
-  v5: loadV5,
-  v6: loadV6,
-  v7: loadV7,
-}
-
-async function onTabChange(name?: string | number) {
-  await loadTab(name)
-  await nextTick()
-  window.dispatchEvent(new Event('resize'))
-}
-
-async function loadTab(name?: string | number) {
-  const key = (name ?? activeTab.value) as TabKey
-  if (loaded[key]) return
+onMounted(async () => {
   loading.value = true
   try {
-    await loaders[key]()
-    loaded[key] = true
+    const configs = (await fetchViewConfigs())
+      .filter((c) => c.enabled && /^v[1-7]$/.test(c.chart_key))
+      .sort((a, b) => a.sort_order - b.sort_order)
+
+    panels.value = configs.map((c) => ({
+      key: c.chart_key,
+      option: null,
+      span: c.chart_key === 'v7' ? 'span-full' : undefined,
+      height: c.chart_key === 'v7' ? 300 : undefined,
+      drill: c.drill_route ?? undefined,
+    }))
+
+    const sources = [...new Set(configs.map((c) => c.data_source))]
+    const dataMap = new Map<string, unknown>()
+    await Promise.all(
+      sources.map(async (src) => {
+        const fetcher = DATA_FETCHERS[src]
+        if (fetcher) dataMap.set(src, await fetcher())
+      }),
+    )
+
+    for (const cfg of configs) {
+      const raw = dataMap.get(cfg.data_source)
+      if (raw) setOption(cfg.chart_key, buildOption(cfg, raw))
+    }
   } finally {
     loading.value = false
   }
-}
-
-onMounted(() => loadTab('v1'))
+})
 </script>
 
 <style scoped>
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.mr-bi-page {
+  padding: 8px 4px 24px;
 }
-.desc {
-  margin: 0 0 12px;
-  color: #606266;
-  font-size: 13px;
+.mr-bi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.mr-bi-cell {
+  min-height: 320px;
+  padding: 8px 10px 4px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e8eef3;
+  box-shadow: 0 1px 8px rgba(61, 126, 184, 0.06);
+}
+.mr-bi-cell.span-full {
+  grid-column: 1 / -1;
+  min-height: 280px;
+}
+@media (max-width: 900px) {
+  .mr-bi-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

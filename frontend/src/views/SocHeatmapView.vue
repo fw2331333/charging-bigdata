@@ -50,8 +50,9 @@ onMounted(async () => {
       hours,
       data,
     )
-    if (opt.visualMap && !Array.isArray(opt.visualMap)) {
-      opt.visualMap.max = Math.ceil(maxSoc) || 100
+    const visualMap = opt.visualMap
+    if (visualMap && !Array.isArray(visualMap)) {
+      ;(visualMap as { max?: number }).max = Math.ceil(maxSoc) || 100
     }
     option.value = opt
   } finally {

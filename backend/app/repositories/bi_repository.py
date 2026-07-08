@@ -1,4 +1,12 @@
-"""数据访问层：查询 MySQL 中的 MapReduce 结果表。"""
+"""
+数据访问层（Repository）：只读 MySQL 服务层，不访问 HDFS。
+
+表域划分：
+  - MR 表（7 张）：MapReduce v1~v7 经 ETL 写入，见 app.core.constants.MR_TABLES
+  - ADS 表（5 张）：Spark 汇总写入，见 app.core.constants.ADS_TABLES
+
+本层仅负责 SQL 与行 → Pydantic 模型映射；业务编排在上层 BiService。
+"""
 
 import pymysql
 
@@ -19,10 +27,14 @@ from app.schemas.bi import (
 
 
 class BiRepository:
+    """MySQL 只读仓储；所有查询均带 LIMIT 防止全表扫描拖垮 API。"""
+
     def _fetch(self, conn: pymysql.connections.Connection, sql: str, limit: int) -> list[dict]:
         with conn.cursor() as cursor:
             cursor.execute(sql, (limit,))
             return list(cursor.fetchall())
+
+    # --- MapReduce 服务表（v1~v7）---
 
     def list_voltage_current(self, conn: pymysql.connections.Connection, limit: int) -> list[VoltageCurrentItem]:
         rows = self._fetch(
@@ -116,6 +128,8 @@ class BiRepository:
             limit,
         )
         return [SocTemperatureItem(**row) for row in rows]
+
+    # --- Spark ADS 服务表 ---
 
     def list_soc_hourly(self, conn: pymysql.connections.Connection, limit: int) -> list[SocHourlyItem]:
         rows = self._fetch(

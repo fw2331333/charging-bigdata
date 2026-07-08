@@ -1,5 +1,5 @@
 # 一键启动：MySQL（自动导入 SQL 种子）+ FastAPI + Vue 静态站
-# 用法见 docker/README.md
+# 用法见 docker/README.md 与 docs/服务器部署与GitHub目录.md
 
 services:
   mysql:
@@ -16,6 +16,11 @@ services:
       - ./sql/ads_schema.sql:/docker-entrypoint-initdb.d/02-ads.sql:ro
       - ./sql/seed/charging_bigdata_data.sql:/seed-data.sql:ro
       - ./docker/mysql/03-seed.sh:/docker-entrypoint-initdb.d/03-seed.sh:ro
+      - ./sql/auth_schema.sql:/docker-entrypoint-initdb.d/04-auth.sql:ro
+      - ./sql/view_config_schema.sql:/docker-entrypoint-initdb.d/05-view-config.sql:ro
+      - ./sql/migrations/004_email_verification.sql:/docker-entrypoint-initdb.d/06-email-verification.sql:ro
+      - ./sql/migrations/005_profile_otp.sql:/docker-entrypoint-initdb.d/07-profile-otp.sql:ro
+      - ./sql/seed/auth_users.sql:/docker-entrypoint-initdb.d/08-auth-users.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-charging123}"]
       interval: 5s
@@ -34,7 +39,20 @@ services:
       MYSQL_USER: root
       MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-charging123}
       MYSQL_DATABASE: charging_bigdata
-      CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://127.0.0.1:8080}
+      EMAIL_VERIFY_EXPIRE_HOURS: ${EMAIL_VERIFY_EXPIRE_HOURS:-24}
+      PROFILE_OTP_EXPIRE_MINUTES: ${PROFILE_OTP_EXPIRE_MINUTES:-10}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-Charging Big Data <noreply@example.com>}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
       ANALYTICS_OUTPUT_DIR: /app/analytics/output
     volumes:
       - ./analytics/output/models:/app/analytics/output/models:ro
@@ -45,6 +63,9 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        VITE_DATART_BASE_URL: ${VITE_DATART_BASE_URL:-http://127.0.0.1:8088}
+        VITE_DATART_DASHBOARD_URL: ${VITE_DATART_DASHBOARD_URL:-}
     container_name: cbp-frontend
     restart: unless-stopped
     ports:

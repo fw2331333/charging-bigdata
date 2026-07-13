@@ -30,14 +30,17 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 
-echo "[4/5] 强制写入 v6/v7 种子（绕过旧表结构/缓存）..."
+echo "[4/6] 升级 v6/v7 表结构（旧 MySQL 卷）..."
+bash "$ROOT/scripts/apply_v6_v7_migration.sh" "$MYSQL_PW"
+
+echo "[5/6] 写入 v6/v7 种子数据..."
 if [[ -f sql/seed/v6_v7_data.sql ]]; then
   docker exec -i cbp-mysql mysql -uroot -p"$MYSQL_PW" charging_bigdata < sql/seed/v6_v7_data.sql
 else
   echo "      警告: sql/seed/v6_v7_data.sql 不存在，跳过"
 fi
 
-echo "[5/5] 重启 backend 并检查 ..."
+echo "[6/6] 重启 backend 并检查 ..."
 docker restart cbp-backend >/dev/null
 sleep 5
 

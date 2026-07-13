@@ -52,11 +52,11 @@ onMounted(async () => {
   try {
     const hourly = sortByTimeKey(await fetchChargeRateHourly(), 'hour_key')
     hourlyOption.value = singleLineOption(
-      'Average Charge Current by Hour',
+      'Average Charge Rate by Hour',
       hourly.map((r) => formatHourAxis(r.hour_key)),
-      'Average Charge Current (A)',
-      hourly.map((r) => -Math.abs(r.avg_rate * 100)),
-      { xAxisName: 'Hour of the Day', yDecimals: 2 },
+      'Average Charge Rate (SOC/min)',
+      hourly.map((r) => r.avg_rate),
+      { xAxisName: 'Hour of the Day', yDecimals: 4, scale: true },
     )
 
     const daily = sortByTimeKey(await fetchChargingDaily(), 'record_date')

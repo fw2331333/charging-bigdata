@@ -280,10 +280,17 @@ export function singleLineOption(
   xData: string[],
   yName: string,
   data: number[],
-  opts?: { xAxisName?: string; yDecimals?: number },
+  opts?: { xAxisName?: string; yDecimals?: number; scale?: boolean },
 ): ChartOption {
   const fewPoints = xData.length <= 24
   const dec = opts?.yDecimals ?? 0
+  const nums = data.map((v) => Number(v))
+  const hasNegative = nums.some((v) => v < 0)
+  const useScale = opts?.scale ?? (hasNegative || (!fewPoints && data.length > 24))
+  const yAxisExtra: Record<string, unknown> = { scale: useScale }
+  if (!useScale && !hasNegative) {
+    yAxisExtra.min = 0
+  }
   return {
     title: { text: title, left: 'center', textStyle: { fontSize: 14 } },
     tooltip: {
@@ -307,7 +314,7 @@ export function singleLineOption(
         interval: axisLabelInterval(xData.length),
       },
     },
-    yAxis: valueYAxis(yName, { min: 0, scale: !fewPoints && data.length > 24 }),
+    yAxis: valueYAxis(yName, yAxisExtra),
     dataZoom: xData.length > 60 ? [{ type: 'inside' }, { type: 'slider', height: 18, bottom: 4 }] : undefined,
     series: [{
       type: 'line',

@@ -83,8 +83,9 @@ export function confusionMatrixHeatmapOption(report: PerformanceReport): ChartOp
     tooltip: {
       position: 'top',
       formatter: (p: { data: [number, number, number] }) => {
-        const [xi, yi, val] = p.data
-        return `真实: ${labels[yi]}<br/>预测: ${labels[xi]}<br/>数量: ${val}`
+        const [xi, displayYi, val] = p.data
+        const truthIndex = labels.length - 1 - displayYi
+        return `真实: ${labels[truthIndex]}<br/>预测: ${labels[xi]}<br/>数量: ${val}`
       },
     },
     grid: { left: 80, right: 40, top: 48, bottom: 72 },

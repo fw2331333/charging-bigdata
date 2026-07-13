@@ -8,12 +8,27 @@ param(
     [string]$MysqlPassword = "123456",
     [string]$MysqlDatabase = "charging_bigdata",
     [string]$DashboardName = "Charging-BigData-BI",
-    [string]$DatartUser = "admin",
+    [string]$DatartUser = "demo",
     [string]$DatartPassword = "123456"
 )
 
 $ErrorActionPreference = "Stop"
 $jdbcUrl = "jdbc:mysql://${MysqlHost}:${MysqlPort}/${MysqlDatabase}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&nullCatalogMeansCurrent=true"
+
+function New-SourceJdbcConfig {
+    return @{
+        dbType             = 'MYSQL'
+        url                = $jdbcUrl
+        user               = $MysqlUser
+        password           = $MysqlPassword
+        driverClass        = 'com.mysql.cj.jdbc.Driver'
+        serverAggregate    = $false
+        enableSpecialSQL   = $false
+        enableSyncSchemas  = $true
+        syncInterval       = '60'
+        properties         = @{}
+    }
+}
 
 function Get-DatartHeaders {
     $loginBody = (@{ username = $DatartUser; password = $DatartPassword } | ConvertTo-Json -Compress)

@@ -30,7 +30,8 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: cbp-backend
     restart: unless-stopped
     environment:
@@ -41,6 +42,8 @@ services:
       MYSQL_DATABASE: charging_bigdata
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_ACCESS_EXPIRE_MINUTES: ${JWT_ACCESS_EXPIRE_MINUTES:-30}
+      JWT_REFRESH_EXPIRE_DAYS: ${JWT_REFRESH_EXPIRE_DAYS:-7}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://127.0.0.1:8080}
       EMAIL_VERIFY_EXPIRE_HOURS: ${EMAIL_VERIFY_EXPIRE_HOURS:-24}
       PROFILE_OTP_EXPIRE_MINUTES: ${PROFILE_OTP_EXPIRE_MINUTES:-10}
@@ -53,9 +56,19 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
       LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-90}
+      RAG_TOP_K: ${RAG_TOP_K:-4}
+      RAG_USE_VECTOR: ${RAG_USE_VECTOR:-true}
+      RAG_CHROMA_DIR: ${RAG_CHROMA_DIR:-chroma_db}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-small-zh-v1.5}
+      FASTEMBED_CACHE_PATH: ${FASTEMBED_CACHE_PATH:-/app/fastembed_cache}
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://hf-mirror.com}
+      RAG_INSECURE_SSL: ${RAG_INSECURE_SSL:-false}
       ANALYTICS_OUTPUT_DIR: /app/analytics/output
     volumes:
       - ./analytics/output/models:/app/analytics/output/models:ro
+      - ./fastembed_cache:/app/fastembed_cache
+      - chroma_data:/app/chroma_db
     depends_on:
       mysql:
         condition: service_healthy
@@ -75,3 +88,4 @@ services:
 
 volumes:
   mysql_data:
+  chroma_data:

@@ -4,8 +4,17 @@ import json
 import sys
 from pathlib import Path
 
-# 允许 backend 引用 analytics.ml_data
-_ROOT = Path(__file__).resolve().parents[3]
+# 允许 backend 引用 analytics.ml_data（本地 backend/ 与 Docker /app 均适用）
+def _analytics_root() -> Path:
+    here = Path(__file__).resolve()
+    for depth in (3, 2, 4):
+        root = here.parents[depth]
+        if (root / "analytics" / "ml_data.py").exists():
+            return root
+    return here.parents[3]
+
+
+_ROOT = _analytics_root()
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 

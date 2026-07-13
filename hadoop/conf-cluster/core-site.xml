@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!-- 三节点集群 core-site.xml：NameNode 固定在 hadoop-master -->
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://hadoop-master:9000</value>
+  </property>
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>file:/data/hadoop/tmp</value>
+  </property>
+</configuration>

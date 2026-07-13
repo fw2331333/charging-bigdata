@@ -33,15 +33,17 @@ export interface ChargeCurrentStatsItem {
 }
 
 export interface VoltageCurrentRelationItem {
-  record_time: string
-  pack_voltage: number
-  charge_current: number
+  record_hour: string
+  voltage_change_rate: number
+  current_change_rate: number
 }
 
 export interface SocTemperatureItem {
-  soc_bucket: string
+  battery_status: string
   avg_max_temperature: number
   avg_min_temperature: number
+  var_max_temperature: number
+  var_min_temperature: number
 }
 
 export const fetchVoltageCurrent = (limit = 500) =>

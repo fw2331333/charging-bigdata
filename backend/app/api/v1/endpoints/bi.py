@@ -79,7 +79,7 @@ def list_charge_current_stats(
 @auth_router.get(
     "/voltage-current-relation",
     response_model=list[VoltageCurrentRelationItem],
-    summary="v6 电压电流关系",
+    summary="v6 组电压变化率",
 )
 def list_voltage_current_relation(
     limit: int = Query(2000, ge=1, le=10000),
@@ -88,7 +88,7 @@ def list_voltage_current_relation(
     return service.list_voltage_current_relation(db, limit)
 
 
-@auth_router.get("/soc-temperature", response_model=list[SocTemperatureItem], summary="v7 SOC 分段温度")
+@auth_router.get("/soc-temperature", response_model=list[SocTemperatureItem], summary="v7 电池状态温度统计")
 def list_soc_temperature(
     limit: int = Query(50, ge=1, le=500),
     db: pymysql.connections.Connection = Depends(get_db),

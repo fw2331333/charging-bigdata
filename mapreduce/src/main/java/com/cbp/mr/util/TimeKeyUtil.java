@@ -23,6 +23,14 @@ public final class TimeKeyUtil {
         return recordTime;
     }
 
+    /** 手册 v6：日内小时键 HH（record_time 第 9~10 位） */
+    public static String toHourOfDayKey(String recordTime) {
+        if (recordTime == null || recordTime.length() < 10) {
+            return "unknown";
+        }
+        return recordTime.substring(8, 10);
+    }
+
     /** SOC 区间标签，如 10-20 */
     public static String toSocBucket(double soc) {
         int lower = ((int) Math.floor(soc / 10.0)) * 10;

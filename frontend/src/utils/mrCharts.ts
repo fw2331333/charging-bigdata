@@ -254,6 +254,125 @@ export function scatterOption(
   }
 }
 
+const BATTERY_STATUS_LABELS: Record<string, string> = {
+  idle: 'idle · SOC<20%',
+  charging: 'charging · 20–50%',
+  discharging: 'discharging · ≥50%',
+}
+
+export interface BatteryStatusTemperatureRow {
+  status: string
+  avgMaxTemperature: number
+  avgMinTemperature: number
+  varMaxTemperature: number
+  varMinTemperature: number
+}
+
+/** v7：电池状态温度均值（柱）+ 方差（折线，右轴） */
+export function batteryStatusTemperatureOption(
+  title: string,
+  rows: BatteryStatusTemperatureRow[],
+): ChartOption {
+  const labels = rows.map((r) => BATTERY_STATUS_LABELS[r.status] ?? r.status)
+  const avgMax = rows.map((r) => Number(r.avgMaxTemperature.toFixed(2)))
+  const avgMin = rows.map((r) => Number(r.avgMinTemperature.toFixed(2)))
+  const varMax = rows.map((r) => Number(r.varMaxTemperature.toFixed(4)))
+  const varMin = rows.map((r) => Number(r.varMinTemperature.toFixed(4)))
+
+  return {
+    title: { text: title, left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: unknown) => {
+        const items = (Array.isArray(params) ? params : [params]) as {
+          seriesName: string
+          value: number
+          dataIndex: number
+        }[]
+        if (!items.length) return ''
+        const idx = items[0].dataIndex
+        const row = rows[idx]
+        const stdMax = Math.sqrt(Math.max(row.varMaxTemperature, 0))
+        const stdMin = Math.sqrt(Math.max(row.varMinTemperature, 0))
+        const statusLabel = BATTERY_STATUS_LABELS[row.status] ?? row.status
+        return [
+          `<strong>${statusLabel}</strong>`,
+          `平均最高温: ${row.avgMaxTemperature.toFixed(2)} ℃`,
+          `平均最低温: ${row.avgMinTemperature.toFixed(2)} ℃`,
+          `最高温方差: ${row.varMaxTemperature.toFixed(4)}`,
+          `最低温方差: ${row.varMinTemperature.toFixed(4)}`,
+          `最高温标准差: ${stdMax.toFixed(3)} ℃`,
+          `最低温标准差: ${stdMin.toFixed(3)} ℃`,
+        ].join('<br/>')
+      },
+    },
+    legend: { top: 28, textStyle: { fontSize: 10 } },
+    grid: chartGrid({
+      leftYName: '温度 (℃)',
+      rightYName: '方差',
+      top: 88,
+      bottom: 56,
+    }),
+    xAxis: {
+      type: 'category',
+      name: '电池状态',
+      nameGap: 28,
+      data: labels,
+      axisLabel: { fontSize: 10, interval: 0 },
+    },
+    yAxis: [
+      valueYAxis('温度 (℃)', {
+        scale: true,
+        splitLine: { lineStyle: { color: '#eee' } },
+      }),
+      valueYAxis('方差', {
+        scale: true,
+        position: 'right',
+        splitLine: { show: false },
+      }),
+    ],
+    series: [
+      {
+        name: 'avg_max_temperature',
+        type: 'bar',
+        yAxisIndex: 0,
+        data: avgMax,
+        itemStyle: { color: '#e85d6a' },
+        barGap: '12%',
+        barCategoryGap: '36%',
+      },
+      {
+        name: 'avg_min_temperature',
+        type: 'bar',
+        yAxisIndex: 0,
+        data: avgMin,
+        itemStyle: { color: '#3d7eb8' },
+      },
+      {
+        name: 'var_max_temperature',
+        type: 'line',
+        yAxisIndex: 1,
+        data: varMax,
+        symbol: 'circle',
+        symbolSize: 8,
+        lineStyle: { width: 2, type: 'dashed' },
+        itemStyle: { color: '#c0392b' },
+      },
+      {
+        name: 'var_min_temperature',
+        type: 'line',
+        yAxisIndex: 1,
+        data: varMin,
+        symbol: 'diamond',
+        symbolSize: 8,
+        lineStyle: { width: 2, type: 'dashed' },
+        itemStyle: { color: '#2980b9' },
+      },
+    ],
+  }
+}
+
 export function barOption(
   title: string,
   categories: string[],

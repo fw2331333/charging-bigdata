@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+无需 Hadoop：从本地 dsv13r1.csv 按手册逻辑生成 v6/v7 数据。
+
+输出：
+  - sql/seed/v6_v7_data.sql          UPSERT（已有库执行）
+  - backend/app/seed/v6_v7_data.json  供 Docker 后端启动自动同步
+  - 更新 sql/seed/charging_bigdata_data.sql 中 v6/v7 INSERT 段
+
+用法：
+  python analytics/scripts/generate_v6_v7_seed.py
+  python analytics/scripts/generate_v6_v7_seed.py --csv F:\\项目2资料\\数据集\\dsv13r1.csv
+  python analytics/scripts/generate_v6_v7_seed.py --apply-local --mysql-password 123456
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from collections import defaultdict
+from pathlib import Path
+from statistics import mean, variance
+
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CSV = ROOT.parent / "数据集" / "dsv13r1.csv"
+SEED_SQL = ROOT / "sql" / "seed" / "v6_v7_data.sql"
+SEED_JSON = ROOT / "backend" / "app" / "seed" / "v6_v7_data.json"
+FULL_SEED = ROOT / "sql" / "seed" / "charging_bigdata_data.sql"
+SEED_VERSION = "manual-v6v7-2026-07-13"
+
+FIELD_RECORD_TIME = 1
+FIELD_SOC = 2
+FIELD_PACK_VOLTAGE = 3
+FIELD_CHARGE_CURRENT = 4
+FIELD_MAX_TEMP = 7
+FIELD_MIN_TEMP = 8
+MIN_FIELDS = 11
+
+
+def battery_status(soc: float) -> str:
+    if soc < 20:
+        return "idle"
+    if soc > 20 and soc < 50:
+        return "charging"
+    return "discharging"
+
+
+def hour_of_day(record_time: str) -> str:
+    if len(record_time) < 10:
+        return "unknown"
+    return record_time[8:10]
+
+
+def parse_rows(csv_path: Path) -> list[list[str]]:
+    rows: list[list[str]] = []
+    with csv_path.open("r", encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            fields = line.split(",")
+            if len(fields) < MIN_FIELDS:
+                continue
+            rows.append(fields)
+    return rows
+
+
+def compute_v6(rows: list[list[str]]) -> list[dict]:
+    by_hour: dict[str, list[tuple[str, float, float]]] = defaultdict(list)
+    for fields in rows:
+        record_time = fields[FIELD_RECORD_TIME]
+        try:
+            voltage = float(fields[FIELD_PACK_VOLTAGE])
+            current = float(fields[FIELD_CHARGE_CURRENT])
+        except ValueError:
+            continue
+        by_hour[hour_of_day(record_time)].append((record_time, voltage, current))
+
+    result: list[dict] = []
+    for hour in sorted(by_hour.keys(), key=lambda h: int(h) if h.isdigit() else 999):
+        recs = sorted(by_hour[hour], key=lambda x: x[0])
+        prev_voltage: float | None = None
+        prev_current: float | None = None
+        voltage_changes: list[float] = []
+        current_changes: list[float] = []
+        for _, voltage, current in recs:
+            if prev_voltage is not None and prev_voltage != 0:
+                voltage_changes.append((voltage - prev_voltage) / prev_voltage * 100.0)
+            if prev_current is not None:
+                abs_prev = abs(prev_current)
+                abs_current = abs(current)
+                if abs_prev != 0:
+                    current_changes.append((abs_current - abs_prev) / abs_prev * 100.0)
+            prev_voltage = voltage
+            prev_current = current
+        result.append(
+            {
+                "record_hour": hour,
+                "voltage_change_rate": round(mean(voltage_changes) if voltage_changes else 0.0, 6),
+                "current_change_rate": round(mean(current_changes) if current_changes else 0.0, 6),
+            }
+        )
+    return result
+
+
+def compute_v7(rows: list[list[str]]) -> list[dict]:
+    groups: dict[str, dict[str, list[float]]] = defaultdict(lambda: {"max": [], "min": []})
+    for fields in rows:
+        try:
+            soc = float(fields[FIELD_SOC])
+            max_temp = float(fields[FIELD_MAX_TEMP])
+            min_temp = float(fields[FIELD_MIN_TEMP])
+        except ValueError:
+            continue
+        status = battery_status(soc)
+        groups[status]["max"].append(max_temp)
+        groups[status]["min"].append(min_temp)
+
+    order = ["idle", "charging", "discharging"]
+    result: list[dict] = []
+    for status in order:
+        bucket = groups.get(status)
+        if not bucket or not bucket["max"]:
+            continue
+        avg_max = mean(bucket["max"])
+        avg_min = mean(bucket["min"])
+        var_max = variance(bucket["max"]) if len(bucket["max"]) > 1 else 0.0
+        var_min = variance(bucket["min"]) if len(bucket["min"]) > 1 else 0.0
+        result.append(
+            {
+                "battery_status": status,
+                "avg_max_temperature": round(avg_max, 6),
+                "avg_min_temperature": round(avg_min, 6),
+                "var_max_temperature": round(var_max, 6),
+                "var_min_temperature": round(var_min, 6),
+            }
+        )
+    return result
+
+
+def sql_quote(value: str) -> str:
+    return "'" + value.replace("\\", "\\\\").replace("'", "''") + "'"
+
+
+def build_sql(v6: list[dict], v7: list[dict]) -> str:
+    lines = [
+        "-- Auto-generated by analytics/scripts/generate_v6_v7_seed.py",
+        f"-- version: {SEED_VERSION}",
+        "USE charging_bigdata;",
+        "",
+    ]
+    if v6:
+        vals = ", ".join(
+            "("
+            f"{sql_quote(r['record_hour'])}, {r['voltage_change_rate']}, {r['current_change_rate']}"
+            ")"
+            for r in v6
+        )
+        lines.extend(
+            [
+                "DELETE FROM t_voltage_current_relation;",
+                "INSERT INTO t_voltage_current_relation "
+                "(record_hour, voltage_change_rate, current_change_rate) VALUES",
+                f"{vals};",
+                "",
+            ]
+        )
+    if v7:
+        vals = ", ".join(
+            "("
+            f"{sql_quote(r['battery_status'])}, "
+            f"{r['avg_max_temperature']}, {r['avg_min_temperature']}, "
+            f"{r['var_max_temperature']}, {r['var_min_temperature']}"
+            ")"
+            for r in v7
+        )
+        lines.extend(
+            [
+                "DELETE FROM t_soc_temperature;",
+                "INSERT INTO t_soc_temperature "
+                "(battery_status, avg_max_temperature, avg_min_temperature, "
+                "var_max_temperature, var_min_temperature) VALUES",
+                f"{vals};",
+                "",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def patch_full_seed(v6: list[dict], v7: list[dict]) -> None:
+    if not FULL_SEED.is_file():
+        return
+    text = FULL_SEED.read_text(encoding="utf-8")
+
+    v6_vals = ", ".join(
+        f"({i + 1},{sql_quote(r['record_hour'])},{r['voltage_change_rate']},{r['current_change_rate']})"
+        for i, r in enumerate(v6)
+    )
+    v6_insert = (
+        "INSERT INTO `t_voltage_current_relation` "
+        "(`id`, `record_hour`, `voltage_change_rate`, `current_change_rate`) VALUES "
+        f"{v6_vals};"
+    )
+    text, n1 = re.subn(
+        r"INSERT INTO `t_voltage_current_relation` .*?;",
+        v6_insert,
+        text,
+        count=1,
+        flags=re.S,
+    )
+
+    v7_vals = ", ".join(
+        "("
+        f"{i + 1},{sql_quote(r['battery_status'])},"
+        f"{r['avg_max_temperature']},{r['avg_min_temperature']},"
+        f"{r['var_max_temperature']},{r['var_min_temperature']}"
+        ")"
+        for i, r in enumerate(v7)
+    )
+    v7_insert = (
+        "INSERT INTO `t_soc_temperature` "
+        "(`id`, `battery_status`, `avg_max_temperature`, `avg_min_temperature`, "
+        "`var_max_temperature`, `var_min_temperature`) VALUES "
+        f"{v7_vals};"
+    )
+    text, n2 = re.subn(
+        r"INSERT INTO `t_soc_temperature` .*?;",
+        v7_insert,
+        text,
+        count=1,
+        flags=re.S,
+    )
+    FULL_SEED.write_text(text, encoding="utf-8")
+    print(f"Patched {FULL_SEED.name}: v6={n1}, v7={n2}")
+
+
+def apply_local(sql_path: Path, password: str, host: str, port: int, user: str) -> None:
+    cmd = [
+        "mysql",
+        "-h",
+        host,
+        "-P",
+        str(port),
+        "-u",
+        user,
+        f"-p{password}",
+        "charging_bigdata",
+    ]
+    with sql_path.open("r", encoding="utf-8") as sql_in:
+        subprocess.check_call(cmd, stdin=sql_in)
+    print(f"Applied {sql_path} to {host}:{port}/charging_bigdata")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate v6/v7 seed data without Hadoop")
+    parser.add_argument("--csv", type=Path, default=DEFAULT_CSV, help="dsv13r1.csv path")
+    parser.add_argument("--apply-local", action="store_true", help="Import into local MySQL")
+    parser.add_argument("--mysql-host", default="127.0.0.1")
+    parser.add_argument("--mysql-port", type=int, default=3306)
+    parser.add_argument("--mysql-user", default="root")
+    parser.add_argument("--mysql-password", default="")
+    args = parser.parse_args()
+
+    if not args.csv.is_file():
+        print(f"CSV not found: {args.csv}", file=sys.stderr)
+        return 1
+
+    rows = parse_rows(args.csv)
+    v6 = compute_v6(rows)
+    v7 = compute_v7(rows)
+    print(f"Parsed {len(rows)} rows -> v6={len(v6)} hours, v7={len(v7)} statuses")
+
+    SEED_JSON.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"version": SEED_VERSION, "v6": v6, "v7": v7}
+    SEED_JSON.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Wrote {SEED_JSON}")
+
+    sql_text = build_sql(v6, v7)
+    SEED_SQL.write_text(sql_text, encoding="utf-8")
+    print(f"Wrote {SEED_SQL}")
+
+    patch_full_seed(v6, v7)
+
+    if args.apply_local:
+        if not args.mysql_password:
+            print("--apply-local requires --mysql-password", file=sys.stderr)
+            return 1
+        apply_local(SEED_SQL, args.mysql_password, args.mysql_host, args.mysql_port, args.mysql_user)
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

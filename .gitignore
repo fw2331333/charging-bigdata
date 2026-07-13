@@ -31,6 +31,7 @@ frontend/.env
 # 环境配置（含密码）
 .env
 .env.local
+.env.docker
 backend/.env
 config/pipeline.env
 backend/chroma_db/

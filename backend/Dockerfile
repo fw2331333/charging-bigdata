@@ -2,19 +2,23 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc default-libmysqlclient-dev pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+# 使用 PyMySQL，无需 apt 安装 gcc / libmysqlclient
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    --trusted-host pypi.tuna.tsinghua.edu.cn \
+    -r requirements.txt
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app ./app
-COPY main.py .
+COPY backend/app ./app
+COPY backend/main.py .
+COPY sql/migrations/009_v6_v7_manual_align.sql ./sql/migrations/009_v6_v7_manual_align.sql
+# 预测服务依赖 analytics.ml_data（Docker 内与本地目录结构一致）
+COPY analytics/__init__.py analytics/ml_data.py analytics/hdfs_io.py ./analytics/
 
 RUN mkdir -p /app/analytics/output/models
 
 ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
     MYSQL_HOST=mysql \
     MYSQL_PORT=3306 \
     MYSQL_USER=root \

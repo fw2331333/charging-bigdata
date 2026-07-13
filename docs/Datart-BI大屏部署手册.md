@@ -80,8 +80,8 @@ CREATE DATABASE IF NOT EXISTS datart DEFAULT CHARSET utf8mb4;
 | v3 电池温度趋势 | `t_temperature` | `record_time` | `max_temperature`, `min_temperature` | 双折线 |
 | v4 可用能量与容量 | `t_energy_capacity` | `record_hour` | `avg_available_energy`, `avg_available_capacity` | 双轴折线 |
 | v5 充电电流统计 | `t_charge_current_stats` | `record_hour` | `avg_charge_current`, `max_charge_current` | 双折线 |
-| v6 电压-电流关系 | `t_voltage_current_relation` | `record_time` | `pack_voltage`, `charge_current` | 散点图 |
-| v7 SOC 区间平均温度 | `t_soc_temperature` | `soc_bucket` | `avg_max_temperature`, `avg_min_temperature` | 柱状/折线 |
+| v6 组电压变化率 | `t_voltage_current_relation` | `record_hour` | `voltage_change_rate`, `current_change_rate` | 双折线（小时内平均变化率；电流按 \|I\|） |
+| v7 电池状态温度 | `t_soc_temperature` | `battery_status` | `avg_max/min_temperature`, `var_max/min_temperature` | 双轴（左均值、右方差） |
 
 也可直接使用已有 SQL 视图：`v_voltage_current`、`v_temperature`、`v_soc_temperature`。
 

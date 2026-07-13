@@ -27,7 +27,9 @@ if ($LASTEXITCODE -ne 0) { throw "Cannot connect to MySQL" }
 
 Invoke-MysqlFile (Join-Path $Root "sql\schema.sql")
 Invoke-MysqlFile (Join-Path $Root "sql\ads_schema.sql")
+Invoke-MysqlFile (Join-Path $Root "sql\auth_schema.sql")
 Invoke-MysqlFile (Join-Path $Root "sql\seed\charging_bigdata_data.sql") -SelectDb
+Invoke-MysqlFile (Join-Path $Root "sql\seed\auth_users.sql") -SelectDb
 
 Write-Host ""
 Write-Host "[OK] Import done. Start backend + frontend to view charts."

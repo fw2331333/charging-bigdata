@@ -107,9 +107,9 @@ class BiRepository:
         rows = self._fetch(
             conn,
             """
-            SELECT record_time, pack_voltage, charge_current
+            SELECT record_hour, voltage_change_rate, current_change_rate
             FROM t_voltage_current_relation
-            ORDER BY record_time
+            ORDER BY CAST(record_hour AS UNSIGNED)
             LIMIT %s
             """,
             limit,
@@ -120,9 +120,9 @@ class BiRepository:
         rows = self._fetch(
             conn,
             """
-            SELECT soc_bucket, avg_max_temperature, avg_min_temperature
+            SELECT battery_status, avg_max_temperature, avg_min_temperature, var_max_temperature, var_min_temperature
             FROM t_soc_temperature
-            ORDER BY soc_bucket
+            ORDER BY FIELD(battery_status, 'idle', 'charging', 'discharging')
             LIMIT %s
             """,
             limit,

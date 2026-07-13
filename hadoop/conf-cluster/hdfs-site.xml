@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-<!-- 三节点集群 hdfs-site.xml：副本数 3 -->
+<!--
+  三节点集群 hdfs-site.xml
+  - dfs.replication=3：与 workers 中 3 台 DataNode 对应
+  - 数据目录三台机器路径必须一致
+-->
 <configuration>
   <property>
     <name>dfs.replication</name>
@@ -17,5 +21,9 @@
   <property>
     <name>dfs.namenode.http-address</name>
     <value>hadoop-master:9870</value>
+  </property>
+  <property>
+    <name>dfs.namenode.secondary.http-address</name>
+    <value>hadoop-master:9868</value>
   </property>
 </configuration>

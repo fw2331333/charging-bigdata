@@ -36,11 +36,33 @@ def _apply_ssl_policy() -> None:
     os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
 
 
-def _try_bge_embedding(model_name: str):
+def _bge_cache_ready(cache_dir: Path) -> bool:
+    tar_layout = cache_dir / "fast-bge-small-zh-v1.5" / "model_optimized.onnx"
+    if tar_layout.exists():
+        return True
+    return any(
+        "bge-small-zh" in str(path).lower()
+        for path in cache_dir.rglob("model_optimized.onnx")
+    )
+
+
+def _try_bge_embedding(model_name: str, cache_dir: Path):
     _apply_ssl_policy()
+    if settings.HF_ENDPOINT.strip():
+        os.environ.setdefault("HF_ENDPOINT", settings.HF_ENDPOINT.strip())
+    os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+    os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "0")
+    local_only = _bge_cache_ready(cache_dir)
+    if local_only:
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        logger.info("BGE 使用本地缓存（offline）: %s", cache_dir)
     from fastembed import TextEmbedding
 
-    return TextEmbedding(model_name=model_name)
+    return TextEmbedding(
+        model_name=model_name,
+        cache_dir=str(cache_dir),
+        local_files_only=local_only,
+    )
 
 
 class BgeEmbeddingFunction:
@@ -48,9 +70,9 @@ class BgeEmbeddingFunction:
 
     backend = "bge"
 
-    def __init__(self, model_name: str) -> None:
-        logger.info("加载 BGE Embedding: %s", model_name)
-        self._model = _try_bge_embedding(model_name)
+    def __init__(self, model_name: str, cache_dir: Path) -> None:
+        logger.info("加载 BGE Embedding: %s cache=%s", model_name, cache_dir)
+        self._model = _try_bge_embedding(model_name, cache_dir)
 
     def __call__(self, input: Documents) -> Embeddings:
         return [vec.tolist() for vec in self._model.embed(input)]
@@ -101,8 +123,10 @@ class TfidfEmbeddingFunction:
 def create_embedding_function(store_dir: Path):
     """优先 BGE；失败则使用本地 TF-IDF。"""
     if settings.RAG_USE_VECTOR:
+        cache_dir = Path(settings.FASTEMBED_CACHE_PATH)
+        cache_dir.mkdir(parents=True, exist_ok=True)
         try:
-            return BgeEmbeddingFunction(settings.EMBEDDING_MODEL)
+            return BgeEmbeddingFunction(settings.EMBEDDING_MODEL, cache_dir)
         except Exception as exc:
             logger.warning("BGE 加载失败，回退 TF-IDF 向量: %s", exc)
 

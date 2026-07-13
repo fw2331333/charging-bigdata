@@ -2,7 +2,8 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm config set registry https://registry.npmmirror.com \
+    && npm ci
 COPY . .
 
 ARG VITE_DATART_BASE_URL=http://127.0.0.1:8088

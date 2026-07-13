@@ -1,0 +1,32 @@
+# Datart BI 大屏叠加服务（手册 §5.2）
+# 用法：docker compose -f docker-compose.yml -f docker-compose.datart.yml up -d --build
+
+services:
+  mysql:
+    volumes:
+      - ./docker/mysql/04-datart-db.sql:/docker-entrypoint-initdb.d/04-datart-db.sql:ro
+
+  datart:
+    image: datart/datart
+    container_name: cbp-datart
+    restart: unless-stopped
+    ports:
+      - "${DATART_PORT:-8088}:8080"
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - ./docker/datart/datart-mysql.conf:/datart/config/datart.conf:ro
+      - datart_files:/datart/files
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_DATART_BASE_URL: ${VITE_DATART_BASE_URL:-http://127.0.0.1:8088}
+        VITE_DATART_DASHBOARD_URL: ${VITE_DATART_DASHBOARD_URL:-}
+
+volumes:
+  datart_files:

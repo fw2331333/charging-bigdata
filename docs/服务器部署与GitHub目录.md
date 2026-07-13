@@ -216,8 +216,33 @@ git add analytics/output/models/*.pkl analytics/output/models/*.json
 
 | 现象 | 处理 |
 |------|------|
+| `registry-1.docker.io` **i/o timeout** | 国内 ECS 常见，见下文「Docker 镜像加速」 |
 | 图表空白 | `docker compose down -v` 后重新 `up`（重建库） |
 | 注册 500 | 确认 `sql/migrations/004` 已在 Docker 初始化中执行 |
 | 预测页报错 | 上传 `analytics/output/models/*.pkl` 或服务器训练后挂载 |
 | 邮件发不出 | 检查 `.env.docker` SMTP；`APP_PUBLIC_URL` 改为公网地址 |
 | CORS 错误 | `CORS_ORIGINS` 与浏览器访问地址完全一致 |
+
+### Docker 镜像加速（阿里云 ECS 拉取 mysql 超时）
+
+```bash
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.1ms.run",
+    "https://docker.xuanyuan.me"
+  ]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+docker pull mysql:8.0
+```
+
+若仍失败：登录 [阿里云控制台](https://cr.console.aliyun.com) → **容器镜像服务** → **镜像工具** → **镜像加速器**，把专属地址 `https://xxxx.mirror.aliyuncs.com` 放进 `registry-mirrors` 第一项后重启 Docker。
+
+```bash
+cd ~/charging-bigdata
+docker compose --env-file .env.docker up -d --build
+```

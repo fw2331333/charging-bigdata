@@ -173,12 +173,11 @@ class AuthService:
 
 
     def register(self, conn: pymysql.connections.Connection, req: RegisterRequest) -> RegisterResponse:
-
         email = str(req.email).strip().lower()
-
         username = req.username.strip()
 
-
+        if email in _BUILTIN_EMAILS:
+            raise AuthServiceError(400, "该邮箱为系统演示账号，请直接登录或注册其他邮箱")
 
         existing = self.repo.find_by_email(conn, email)
 
@@ -401,44 +400,27 @@ class AuthService:
 
 
     def login(self, conn: pymysql.connections.Connection, req: LoginRequest) -> LoginResponse:
-
         email = str(req.email).strip().lower()
 
-        row = self.repo.find_by_email(conn, email)
-
-        if row:
-
-            if not row.get("is_active", 1):
-
-                raise AuthServiceError(401, "邮箱或密码错误")
-
-            if not verify_password(req.password, row["password_hash"]):
-
-                raise AuthServiceError(401, "邮箱或密码错误")
-
-            if not row.get("email_verified", 1):
-
-                raise AuthServiceError(
-
-                    403,
-
-                    "邮箱尚未验证，请查收邮件完成设置密码，或使用忘记密码重发",
-
-                )
-
-            user = self.repo.to_user_info(row)
-
-            pair = self._issue_token_pair(conn, user)
-
-            return LoginResponse(user=user, **pair.model_dump())
-
-
-
+        # 演示账号优先走内置凭据，避免 DB 中同邮箱未验证/错误哈希导致无法登录
         builtin = self._login_builtin(conn, req)
-
         if builtin:
-
             return builtin
+
+        row = self.repo.find_by_email(conn, email)
+        if row:
+            if not row.get("is_active", 1):
+                raise AuthServiceError(401, "邮箱或密码错误")
+            if not verify_password(req.password, row["password_hash"]):
+                raise AuthServiceError(401, "邮箱或密码错误")
+            if not row.get("email_verified", 1):
+                raise AuthServiceError(
+                    403,
+                    "邮箱尚未验证，请查收邮件完成设置密码，或使用忘记密码重发",
+                )
+            user = self.repo.to_user_info(row)
+            pair = self._issue_token_pair(conn, user)
+            return LoginResponse(user=user, **pair.model_dump())
 
         raise AuthServiceError(401, "邮箱或密码错误")
 

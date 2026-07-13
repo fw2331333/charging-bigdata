@@ -17,9 +17,13 @@ mysql_exec() {
 echo "==> 重建数据库 ${MYSQL_DATABASE}"
 mysql_exec -e "DROP DATABASE IF EXISTS ${MYSQL_DATABASE}; CREATE DATABASE ${MYSQL_DATABASE} DEFAULT CHARSET utf8mb4;"
 
-for f in schema.sql ads_schema.sql seed/charging_bigdata_data.sql; do
+for f in schema.sql ads_schema.sql auth_schema.sql seed/charging_bigdata_data.sql seed/auth_users.sql; do
   echo "==> sql/${f}"
-  mysql_exec "${MYSQL_DATABASE}" < "${ROOT}/sql/${f}"
+  if [[ "$f" == seed/* ]]; then
+    mysql_exec "${MYSQL_DATABASE}" < "${ROOT}/sql/${f}"
+  else
+    mysql_exec < "${ROOT}/sql/${f}"
+  fi
 done
 
 echo "[OK] 导入完成"

@@ -12,16 +12,16 @@ from app.core.config import settings
 
 
 def hash_password(password: str) -> str:
-    from passlib.context import CryptContext
+    import bcrypt
 
-    return CryptContext(schemes=["bcrypt"], deprecated="auto").hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    try:
-        from passlib.context import CryptContext
+    import bcrypt
 
-        return CryptContext(schemes=["bcrypt"], deprecated="auto").verify(plain, hashed)
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
     except Exception:
         return False
 

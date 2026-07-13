@@ -210,6 +210,7 @@ async function sendMessage(text: string) {
 
   streamAbort?.abort()
   streamAbort = new AbortController()
+  const streamTimeout = window.setTimeout(() => streamAbort?.abort(), 120_000)
   pendingDelta = ''
 
   messages.value.push({ role: 'user', content: trimmed })
@@ -271,6 +272,7 @@ async function sendMessage(text: string) {
       messages.value.pop()
     }
   } finally {
+    window.clearTimeout(streamTimeout)
     flushDeltaNow()
     loading.value = false
     streaming.value = false

@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     RAG_USE_VECTOR: bool = True
     RAG_CHROMA_DIR: str = "chroma_db"
     EMBEDDING_MODEL: str = "BAAI/bge-small-zh-v1.5"
+    FASTEMBED_CACHE_PATH: str = "/app/fastembed_cache"
+    HF_ENDPOINT: str = "https://hf-mirror.com"
     RAG_INSECURE_SSL: bool = False
 
     # ETL 完成后通知后端清 BI 缓存（与 pipeline.env 中 PIPELINE_SECRET 一致）

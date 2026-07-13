@@ -34,15 +34,17 @@ class ChargeCurrentStatsItem(BaseModel):
 
 
 class VoltageCurrentRelationItem(BaseModel):
-    record_time: str
-    pack_voltage: float
-    charge_current: float
+    record_hour: str
+    voltage_change_rate: float
+    current_change_rate: float
 
 
 class SocTemperatureItem(BaseModel):
-    soc_bucket: str
+    battery_status: str
     avg_max_temperature: float
     avg_min_temperature: float
+    var_max_temperature: float
+    var_min_temperature: float
 
 
 class SocHourlyItem(BaseModel):

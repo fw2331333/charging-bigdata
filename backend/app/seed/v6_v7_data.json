@@ -1,0 +1,53 @@
+{
+  "version": "manual-v6v7-2026-07-13",
+  "v6": [
+    {
+      "record_hour": "00",
+      "voltage_change_rate": 0.061036,
+      "current_change_rate": -0.019333
+    },
+    {
+      "record_hour": "11",
+      "voltage_change_rate": 0.004953,
+      "current_change_rate": 0.0
+    },
+    {
+      "record_hour": "12",
+      "voltage_change_rate": 0.003634,
+      "current_change_rate": 0.0
+    },
+    {
+      "record_hour": "13",
+      "voltage_change_rate": 0.008377,
+      "current_change_rate": 0.0
+    },
+    {
+      "record_hour": "14",
+      "voltage_change_rate": 0.009168,
+      "current_change_rate": 0.0
+    }
+  ],
+  "v7": [
+    {
+      "battery_status": "idle",
+      "avg_max_temperature": 32.881356,
+      "avg_min_temperature": 31.0,
+      "var_max_temperature": 0.105461,
+      "var_min_temperature": 0.0
+    },
+    {
+      "battery_status": "charging",
+      "avg_max_temperature": 34.434059,
+      "avg_min_temperature": 32.583867,
+      "var_max_temperature": 1.169044,
+      "var_min_temperature": 0.981739
+    },
+    {
+      "battery_status": "discharging",
+      "avg_max_temperature": 36.805755,
+      "avg_min_temperature": 34.676259,
+      "var_max_temperature": 0.346941,
+      "var_min_temperature": 0.40945
+    }
+  ]
+}

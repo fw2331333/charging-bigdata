@@ -12,10 +12,23 @@ import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
 /**
- * 批量运行 v1~v7 共七个 MapReduce 任务（输入为 HDFS 上的 dsv13r1.csv）。
+ * MapReduce 批处理编排器：顺序执行 v1~v7，结果写入 HDFS 分区目录。
+ *
+ * <p>设计约定：
+ * <ul>
+ *   <li>计算层只产出 HDFS 文件，不直连 MySQL（入库由 ETL 层负责）</li>
+ *   <li>每个任务输出 {@code {outputBase}/vN/part-r-00000}，供 analytics/etl 消费</li>
+ *   <li>单任务失败时继续执行后续任务，最终按失败数返回退出码</li>
+ * </ul>
+ *
+ * <p>用法：
+ * <pre>
+ *   hadoop jar charging-mapreduce-1.0.0.jar /Car/dsv13r1.csv /Car/output
+ * </pre>
  */
 public class JobRunner {
 
+    /** 与 analytics/etl/mr_tasks.MR_ETL_TASKS 的 code 字段保持一致 */
     private static final Tool[] TASKS = {
             new V1VoltageCurrentHourly(),
             new V2CellVoltageRange(),

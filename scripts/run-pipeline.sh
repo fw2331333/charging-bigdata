@@ -1,11 +1,16 @@
 #!/bin/bash
 # =============================================================================
 # 企业式离线批处理流水线（单入口）
-#   HDFS → MapReduce v1~v7 → MySQL MR → Spark ADS(dsv13r2+nvv2t) → MySQL ADS
 #
-# 首次虚拟机：bash scripts/vm-setup-once.sh
-# 日常全量：  bash scripts/run-pipeline.sh
-# 详见：      docs/虚拟机一次性运行手册.md
+# 阶段：
+#   1. Preflight   — Hadoop / HDFS / MySQL
+#   2. MapReduce   — v1~v7 写 HDFS（计算层，不连 MySQL）
+#   3. ETL         — analytics/etl 幂等写入 MySQL 服务层
+#   4. Spark ADS   — dsv13r2 + nvv2t 汇总入 MySQL
+#
+# 首次：bash scripts/vm-setup-once.sh
+# 三节点：docs/三节点集群部署手册.md
+# 架构：docs/企业级架构与ETL设计.md
 # =============================================================================
 set -euo pipefail
 
@@ -26,8 +31,8 @@ fi
 # shellcheck source=lib/source-env.sh
 source "${ROOT}/scripts/lib/source-env.sh" || die "加载 ${ENV_FILE} 失败"
 
-export HADOOP_HOME="${HADOOP_HOME:-/usr/local/hadoop}"
-export JAVA_HOME="${JAVA_HOME:-/usr/local/jdk1.8.0_162}"
+export HADOOP_HOME="${HADOOP_HOME:-/opt/hadoop-3.1.3}"
+export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-8-openjdk-amd64}"
 export SPARK_HOME="${SPARK_HOME:-/usr/local/spark}"
 export PATH="${JAVA_HOME}/bin:${SPARK_HOME}/bin:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:${PATH}"
 export HADOOP_CONF_DIR="${HADOOP_HOME}/etc/hadoop"
@@ -116,6 +121,19 @@ if [[ "${SKIP_ADS}" != "1" && "${SKIP_ETL}" != "1" ]]; then
   log "ADS ETL 完成"
 else
   log "跳过 ADS ETL (SKIP_ADS=1 或 SKIP_ETL=1)"
+fi
+
+# --- 通知后端清空 BI 缓存 ---
+if [[ "${SKIP_ETL}" != "1" ]]; then
+  BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:8000}"
+  PIPELINE_SECRET="${PIPELINE_SECRET:-charging-pipeline-dev}"
+  log "通知后端清空 BI 缓存: ${BACKEND_URL}"
+  if curl -sf -X POST "${BACKEND_URL}/api/v1/bi/cache/invalidate-pipeline" \
+      -H "X-Pipeline-Secret: ${PIPELINE_SECRET}" >/dev/null; then
+    log "BI 缓存已失效"
+  else
+    log "WARN: 无法通知后端清 BI 缓存（后端未启动可忽略）"
+  fi
 fi
 
 log "========== 流水线 SUCCESS =========="

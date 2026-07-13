@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
@@ -37,6 +38,43 @@ def weekday_code(wd: str) -> float:
 
 def platform_code(p: str) -> float:
     return 1.0 if (p or "").lower() == "android" else 0.0
+
+
+def weekday_label(dt: datetime) -> str:
+    return WEEKDAYS[dt.weekday()]
+
+
+def charge_hours_between(start_at: datetime, end_at: datetime) -> float:
+    return (end_at - start_at).total_seconds() / 3600.0
+
+
+def session_row_from_datetimes(
+    start_at: datetime,
+    end_at: datetime,
+    *,
+    kwh_total: float,
+    weekday: str | None = None,
+    platform: str = "android",
+    facility_type: int = 0,
+    station_id: int = 0,
+    charge_time_hrs: float | None = None,
+    charging_fees: float | None = None,
+) -> dict[str, str]:
+    """将起止日期时间转为与 nvv2t_md 一致的特征行（支持跨日，endTime 可为次日小时）。"""
+    hrs = charge_time_hrs if charge_time_hrs is not None else charge_hours_between(start_at, end_at)
+    row: dict[str, str] = {
+        "kwhTotal": str(kwh_total),
+        "startTime": str(start_at.hour),
+        "endTime": str(end_at.hour),
+        "chargeTimeHrs": str(hrs),
+        "weekday": weekday or weekday_label(start_at),
+        "platform": platform,
+        "facilityType": str(facility_type),
+        "stationId": str(station_id),
+    }
+    if charging_fees is not None:
+        row["charging_fees"] = str(charging_fees)
+    return row
 
 
 def parse_nvv2t_rows(
@@ -147,7 +185,7 @@ def parse_dsv13r2_rows(
         if len(parts) < 11:
             continue
         try:
-            out.append({
+            row = {
                 "soc": float(parts[2]),
                 "pack_voltage": float(parts[3]),
                 "charge_current": float(parts[4]),
@@ -157,9 +195,15 @@ def parse_dsv13r2_rows(
                 "min_temp": float(parts[8]),
                 "energy": float(parts[9]),
                 "capacity": float(parts[10]),
-            })
+            }
         except ValueError:
             continue
+        # 丢弃物理上不合理的边界（最低高于最高）
+        if row["min_cell_v"] > row["max_cell_v"]:
+            continue
+        if row["min_temp"] > row["max_temp"]:
+            continue
+        out.append(row)
     return out
 
 

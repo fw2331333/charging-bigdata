@@ -28,12 +28,14 @@ def _format_sse(event: str, data: dict) -> str:
 
 async def _stream_events(
     req: AssistantChatRequest,
-    data_ctx: str,
-    rag_chunks,
-    rag_mode: str,
-    rag_sources: list[str],
+    db: pymysql.connections.Connection,
 ) -> AsyncIterator[str]:
     try:
+        yield _format_sse("status", {"phase": "preparing"})
+        data_ctx = service.build_data_context(db)
+        rag_chunks, rag_mode = service.retrieve_context(req.message)
+        rag_sources = [c.citation for c in rag_chunks]
+        yield _format_sse("status", {"phase": "generating"})
         async for event, payload in service.stream_chat_prepared(
             req, data_ctx, rag_chunks, rag_mode, rag_sources
         ):
@@ -48,11 +50,8 @@ async def chat_stream(
     _: UserInfo = Depends(get_current_user),
     db: pymysql.connections.Connection = Depends(get_db),
 ) -> StreamingResponse:
-    data_ctx = service.build_data_context(db)
-    rag_chunks, rag_mode = service.retrieve_context(req.message)
-    rag_sources = [c.citation for c in rag_chunks]
     return StreamingResponse(
-        _stream_events(req, data_ctx, rag_chunks, rag_mode, rag_sources),
+        _stream_events(req, db),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

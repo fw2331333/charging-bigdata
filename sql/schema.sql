@@ -49,22 +49,24 @@ CREATE TABLE IF NOT EXISTS t_charge_current_stats (
     UNIQUE KEY uk_record_hour (record_hour)
 ) COMMENT 'v5-充电电流统计';
 
--- v6 组电压与充电电流关系（每个时间点）
+-- v6 组电压与充电电流变化率（按日内小时）
 CREATE TABLE IF NOT EXISTS t_voltage_current_relation (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    record_time VARCHAR(20) NOT NULL COMMENT 'yyyyMMddHHmmss',
-    pack_voltage DOUBLE COMMENT '组电压(V)',
-    charge_current DOUBLE COMMENT '充电电流(A)',
-    UNIQUE KEY uk_record_time (record_time)
-) COMMENT 'v6-电压电流关系';
+    record_hour VARCHAR(20) NOT NULL COMMENT '小时 HH(00-23)',
+    voltage_change_rate DOUBLE COMMENT '组电压变化率(%)',
+    current_change_rate DOUBLE COMMENT '充电电流变化率(%)',
+    UNIQUE KEY uk_record_hour (record_hour)
+) COMMENT 'v6-组电压变化率';
 
--- v7 不同电池状态(SOC分段)下平均最高/最低温度
+-- v7 不同电池状态下最高/最低温度均值与方差
 CREATE TABLE IF NOT EXISTS t_soc_temperature (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    soc_bucket VARCHAR(20) NOT NULL COMMENT 'SOC分段，如10-20',
+    battery_status VARCHAR(20) NOT NULL COMMENT 'idle/charging/discharging',
     avg_max_temperature DOUBLE COMMENT '平均最高温度(℃)',
     avg_min_temperature DOUBLE COMMENT '平均最低温度(℃)',
-    UNIQUE KEY uk_soc_bucket (soc_bucket)
+    var_max_temperature DOUBLE COMMENT '最高温度方差',
+    var_min_temperature DOUBLE COMMENT '最低温度方差',
+    UNIQUE KEY uk_battery_status (battery_status)
 ) COMMENT 'v7-电池状态温度';
 
 -- BI 视图示例
@@ -75,4 +77,4 @@ CREATE OR REPLACE VIEW v_temperature AS
 SELECT record_time, max_temperature, min_temperature FROM t_temperature;
 
 CREATE OR REPLACE VIEW v_soc_temperature AS
-SELECT soc_bucket, avg_max_temperature, avg_min_temperature FROM t_soc_temperature;
+SELECT battery_status, avg_max_temperature, avg_min_temperature, var_max_temperature, var_min_temperature FROM t_soc_temperature;

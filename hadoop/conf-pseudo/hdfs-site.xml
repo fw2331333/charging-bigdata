@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <!--
-  单机：副本数 1；三节点集群：改为 dfs.replication=3
+  单机伪分布式 hdfs-site.xml
+  - 数据目录与 install-pseudo-distributed.sh 创建的 /data/hadoop 一致
+  - 三节点：改用 conf-cluster/hdfs-site.xml（副本数 3）
 -->
 <configuration>
   <property>
@@ -10,14 +12,14 @@
   </property>
   <property>
     <name>dfs.namenode.name.dir</name>
-    <value>file:/usr/local/hadoop/tmp/dfs/name</value>
+    <value>file:/data/hadoop/hdfs/namenode</value>
   </property>
   <property>
     <name>dfs.datanode.data.dir</name>
-    <value>file:/usr/local/hadoop/tmp/dfs/data</value>
+    <value>file:/data/hadoop/hdfs/datanode</value>
   </property>
   <property>
     <name>dfs.namenode.http-address</name>
-    <value>localhost:9870</value>
+    <value>hadoop-master:9870</value>
   </property>
 </configuration>

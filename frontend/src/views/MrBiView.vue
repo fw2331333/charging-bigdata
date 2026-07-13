@@ -46,12 +46,11 @@ import {
 } from '@/api/bi'
 import {
   aggregateTemperatureByHour,
-  barOption,
   barWithTotalOption,
+  batteryStatusTemperatureOption,
   dualBarVisuOption,
   dualLineOption,
   hourAxisLabel,
-  scatterOption,
   sortByTimeKey,
   stackedAreaOption,
 } from '@/utils/mrCharts'
@@ -147,18 +146,32 @@ function buildOption(cfg: ChartViewConfig, raw: unknown): ChartOption | null {
   }
 
   if (key === 'v6') {
-    const rows = raw as VoltageCurrentRelationItem[]
-    const points = rows.map((r) => [r.pack_voltage, r.charge_current] as [number, number])
-    return scatterOption(title, points, 'pack_voltage (V)', 'charge_current (A)')
+    const rows = sortByTimeKey(raw as VoltageCurrentRelationItem[], 'record_hour')
+    const x = rows.map((r) => r.record_hour)
+    return dualLineOption(
+      title,
+      x,
+      [
+        { name: 'voltage_change_rate', data: rows.map((r) => r.voltage_change_rate) },
+        { name: 'current_change_rate', data: rows.map((r) => r.current_change_rate), yAxisIndex: 1 },
+      ],
+      ['Voltage Avg Chg (%)', 'Current |I| Avg Chg (%)'],
+      { xAxisName: 'Hour of Day', yDecimals: 4 },
+    )
   }
 
   if (key === 'v7') {
     const rows = raw as SocTemperatureItem[]
-    const buckets = rows.map((r) => r.soc_bucket)
-    return barOption(title, buckets, [
-      { name: 'avg_min_temperature', data: rows.map((r) => r.avg_min_temperature) },
-      { name: 'avg_max_temperature', data: rows.map((r) => r.avg_max_temperature) },
-    ])
+    return batteryStatusTemperatureOption(
+      title,
+      rows.map((r) => ({
+        status: r.battery_status,
+        avgMaxTemperature: r.avg_max_temperature,
+        avgMinTemperature: r.avg_min_temperature,
+        varMaxTemperature: r.var_max_temperature,
+        varMinTemperature: r.var_min_temperature,
+      })),
+    )
   }
 
   return null
@@ -175,7 +188,7 @@ onMounted(async () => {
       key: c.chart_key,
       option: null,
       span: c.chart_key === 'v7' ? 'span-full' : undefined,
-      height: c.chart_key === 'v7' ? 300 : undefined,
+      height: c.chart_key === 'v7' ? 360 : undefined,
       drill: c.drill_route ?? undefined,
     }))
 

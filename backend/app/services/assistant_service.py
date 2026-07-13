@@ -179,22 +179,14 @@ class AssistantService:
 
         if settings.LLM_API_KEY and settings.LLM_BASE_URL:
             try:
+                yield "meta", {**meta, "mode": "llm"}
                 stream = self._llm_stream(req, data_ctx, rag_chunks)
-                first = await stream.__anext__()
-            except StopAsyncIteration:
-                yield "meta", {**meta, "mode": "llm"}
-                yield "done", {}
-                return
-            except Exception:
-                first = None
-                stream = None
-            else:
-                yield "meta", {**meta, "mode": "llm"}
-                yield "delta", {"content": first}
                 async for chunk in self._batched_text_stream(stream):
                     yield "delta", {"content": chunk}
                 yield "done", {}
                 return
+            except Exception:
+                pass
 
         reply = self._rule_reply(req, data_ctx, rag_chunks)
         yield "meta", {**meta, "mode": "rule"}

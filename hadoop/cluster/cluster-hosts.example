@@ -1,0 +1,6 @@
+# 三节点集群 /etc/hosts 示例（三台机器内容一致，IP 按实验室实际修改）
+# 复制到各节点：sudo cp cluster-hosts.example /etc/hosts  （或合并进现有 hosts）
+
+192.168.1.101  hadoop-master
+192.168.1.102  hadoop-slave1
+192.168.1.103  hadoop-slave2

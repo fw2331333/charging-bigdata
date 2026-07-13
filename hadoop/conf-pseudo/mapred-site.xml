@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  MapReduce on YARN（单机与三节点相同）
+  历史作业可在 YARN Web UI :8088 查看
+-->
 <configuration>
   <property>
     <name>mapreduce.framework.name</name>

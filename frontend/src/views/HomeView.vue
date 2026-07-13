@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import FourSBanner from '@/components/home/FourSBanner.vue'
@@ -50,7 +50,7 @@ const homeRef = ref<HTMLElement | null>(null)
 const router = useRouter()
 const auth = useAuthStore()
 const { t } = useLocale()
-const datartUrl = getDatartOpenUrl()
+const datartUrl = computed(() => getDatartOpenUrl())
 const datartReachable = ref<boolean | null>(null)
 
 onMounted(() => {
@@ -72,8 +72,8 @@ function onDatartClick(e: MouseEvent) {
     e.preventDefault()
     ElMessage.warning({
       message:
-        'Datart 未启动（127.0.0.1:8088 无响应）。请先打开 Docker Desktop，再在项目根目录运行：scripts\\start-datart.ps1，登录 demo / 123456',
-      duration: 8000,
+        `Datart 未启动（${datartUrl.value} 无响应）。服务器请执行：docker compose -f docker-compose.yml -f docker-compose.datart.yml up -d datart，再运行 bash scripts/fix-datart-all.sh`,
+      duration: 10000,
       showClose: true,
     })
   }

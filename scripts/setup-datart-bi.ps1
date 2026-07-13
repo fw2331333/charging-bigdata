@@ -33,7 +33,24 @@ function New-SourceJdbcConfig {
 function Get-DatartHeaders {
     $loginBody = (@{ username = $DatartUser; password = $DatartPassword } | ConvertTo-Json -Compress)
     $r = Invoke-WebRequest -Uri "$DatartUrl/api/v1/users/login" -Method Post -ContentType "application/json" -Body $loginBody -UseBasicParsing
+    $script:DatartLoginPayload = $null
+    try {
+        $script:DatartLoginPayload = $r.Content | ConvertFrom-Json
+    } catch {
+        $script:DatartLoginPayload = $null
+    }
     return @{ Authorization = $r.Headers['Authorization']; 'Content-Type' = 'application/json' }
+}
+
+function Resolve-DatartOrgId {
+    param([hashtable]$Headers)
+    if ($OrgId) { return $OrgId }
+    if ($script:DatartLoginPayload -and $script:DatartLoginPayload.data.orgId) {
+        return [string]$script:DatartLoginPayload.data.orgId
+    }
+    $orgs = (Invoke-Datart GET '/api/v1/orgs' $null $Headers).data
+    if ($orgs -and $orgs.Count -gt 0) { return [string]$orgs[0].id }
+    throw "Cannot resolve Datart orgId; pass -OrgId explicitly."
 }
 
 function Invoke-Datart {
@@ -63,24 +80,37 @@ function Build-ModelJson {
 
 Write-Host "Datart BI seed -> $DatartUrl"
 $h = Get-DatartHeaders
+$OrgId = Resolve-DatartOrgId $h
+Write-Host "Using orgId=$OrgId user=$DatartUser"
 
 $sources = (Invoke-Datart GET "/api/v1/sources?orgId=$OrgId" $null $h).data
 $source = $sources | Where-Object { $_.name -eq 'charging_bigdata' } | Select-Object -First 1
-if (-not $source) {
+$jdbcConfig = New-SourceJdbcConfig
+if ($source) {
+    Write-Host "Updating datasource charging_bigdata (JDBC password/host) ..."
+    Invoke-Datart PUT "/api/v1/sources/$($source.id)" @{
+        id     = $source.id
+        name   = 'charging_bigdata'
+        type   = 'JDBC'
+        orgId  = $OrgId
+        config = $jdbcConfig
+    } $h | Out-Null
+} else {
     Write-Host "Creating datasource charging_bigdata ..."
-    $test = @{
-        name = 'charging_bigdata'; type = 'JDBC'
-        properties = @{
-            dbType = 'MYSQL'; url = $jdbcUrl; user = $MysqlUser; password = $MysqlPassword
-            driverClass = 'com.mysql.cj.jdbc.Driver'; serverAggregate = $false
-            enableSpecialSQL = $false; enableSyncSchemas = $true; syncInterval = '60'; properties = @{}
-        }
+    $test = @{ name = 'charging_bigdata'; type = 'JDBC'; properties = $jdbcConfig }
+    try {
+        Invoke-Datart POST '/api/v1/data-provider/test' $test $h | Out-Null
+        $source = (Invoke-Datart POST '/api/v1/sources' @{
+            name   = 'charging_bigdata'
+            type   = 'JDBC'
+            orgId  = $OrgId
+            config = $jdbcConfig
+        } $h).data
+    } catch {
+        Write-Host "Create source failed: $($_.Exception.Message)"
+        Write-Host "Retry login as demo (Datart manual default) or delete old source in UI, then re-run."
+        throw
     }
-    Invoke-Datart POST '/api/v1/data-provider/test' $test $h | Out-Null
-    $source = (Invoke-Datart POST '/api/v1/sources' @{
-        name = 'charging_bigdata'; type = 'JDBC'; orgId = $OrgId
-        config = $test.properties
-    } $h).data
 }
 
 $viewDefs = @(

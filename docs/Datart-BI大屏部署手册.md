@@ -17,7 +17,29 @@ CSV → HDFS → MapReduce v1~v7 → MySQL charging_bigdata → Datart BI + Web 
 
 ## 1. 启动 Datart
 
-### 方式 A：单独 Docker（本机已有 MySQL + Web）
+### 在 ECS 上用 admin 更新（无需 Windows）
+
+```bash
+cd ~/charging-bigdata
+git pull origin main
+
+export DATART_PASSWORD='你的admin登录密码'
+export MYSQL_PASSWORD='Charging@2026'
+
+bash scripts/setup-datart-bi.sh
+```
+
+脚本使用 `http://127.0.0.1:8088`（服务器本机访问 Datart），自动识别 `orgId`，用 **admin** 更新数据源与 v1~v7 视图。若已安装 `pwsh`，会顺带重建 Dashboard 七图。
+
+安装 pwsh（可选，用于自动排版七图）：
+
+```bash
+sudo apt update && sudo apt install -y powershell
+export DATART_PASSWORD='...'
+pwsh scripts/build-datart-dashboard.ps1 -DatartUrl http://127.0.0.1:8088 -DatartUser admin -DatartPassword "$DATART_PASSWORD"
+```
+
+---
 
 ```powershell
 # Windows
